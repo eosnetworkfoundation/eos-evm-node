@@ -106,7 +106,11 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
          node_settings.chain_config = silkworm::db::read_chain_config(txn);
          node_settings.network_id = node_settings.chain_config->chain_id;
 
-         
+         // Load genesis_hash
+         node_settings.chain_config->genesis_hash = silkworm::db::read_canonical_header_hash(txn, 0);
+         if (!node_settings.chain_config->genesis_hash.has_value())
+               throw std::runtime_error("Could not load genesis hash");
+
          auto sentry = std::make_shared<nopsentry>();
          eth.reset(new silkworm::EthereumBackEnd(node_settings, &db_env, sentry));
          eth->set_node_name("EOS EVM Node");

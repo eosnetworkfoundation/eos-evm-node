@@ -125,12 +125,13 @@ void rpc_plugin::plugin_initialize( const appbase::variables_map& options ) try 
          .log_verbosity = log_level
       },
       .context_pool_settings = silkworm::concurrency::ContextPoolSettings{},
-      .datadir               = node_settings.data_directory->chaindata().path().string(),
+      .datadir               = data_dir,
       .eth_end_point         = http_port,
       .engine_end_point      = engine_port,
       .eth_api_spec          = options.at("api-spec").as<std::string>(),
       .private_api_addr      = node_port,
-      .num_workers           = threads
+      .num_workers           = threads,
+      .skip_protocol_check   = true
    };
 
    my.reset(new rpc_plugin_impl(settings));
