@@ -5,6 +5,7 @@
 #include <map>
 #include <string>
 
+#include <silkworm/node/stagedsync/types.hpp>
 #include <silkworm/node/stagedsync/execution_engine.hpp>
 
 using sys = sys_plugin;
@@ -18,18 +19,22 @@ class blockchain_plugin_impl : std::enable_shared_from_this<blockchain_plugin_im
          node_settings = appbase::app().get_plugin<engine_plugin>().get_node_settings();
          SILK_INFO << "Using DB environment at location : " << node_settings->data_directory->chaindata().path().string();
 
-         exec_engine = std::make_unique<silkworm::stagedsync::ExecutionEngine>(appbase::app().get_io_context(), *node_settings, silkworm::db::RWAccess{*db_env});
-         exec_engine->open();
-
          evm_blocks_subscription = appbase::app().get_channel<channels::evm_blocks>().subscribe(
-            [this](auto b) {
+            [this](auto new_block) {
                try {
-                  //  //SILK_INFO << "EVM Block " << b->header.number;
-                  exec_engine->insert_block(b);
+                  static size_t block_count{0};
 
-                  //  if( exec_engine->get_state() == silkworm::Worker::State::kStopped ) {
-                  //      appbase::app().quit();
-                  //  }
+                  SILK_DEBUG << "EVM Block " << new_block->header.number;
+                  if(!exec_engine) {
+                     exec_engine = std::make_unique<silkworm::stagedsync::ExecutionEngine>(appbase::app().get_io_context(), *node_settings, silkworm::db::RWAccess{*db_env});
+                     exec_engine->open();
+                  }
+
+                  exec_engine->insert_block(new_block);
+                  if(!(++block_count % 5000) || !new_block->irreversible) {
+                     exec_engine->verify_chain(new_block->header.hash());
+                     block_count=0;
+                  }
                } catch (const mdbx::exception& ex) {
                   SILK_CRIT << "CALLBACK ERR1" << std::string(ex.what());
                } catch (const std::exception& ex) {
