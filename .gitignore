@@ -1,2 +1,5 @@
 build
 .vscode
+tests/nodeos_eos_evm_server/artifacts
+tests/nodeos_eos_evm_server/cache
+tests/nodeos_eos_evm_server/node_modules

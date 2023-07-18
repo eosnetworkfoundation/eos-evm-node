@@ -66,6 +66,7 @@ appArgs=AppArgs()
 appArgs.add(flag="--eos-evm-contract-root", type=str, help="EOS EVM Contract build dir", default=None)
 appArgs.add(flag="--genesis-json", type=str, help="File to save generated genesis json", default="eos-evm-genesis.json")
 appArgs.add(flag="--read-endpoint", type=str, help="EVM read endpoint (eos-evm-rpc)", default="http://localhost:8881")
+appArgs.add(flag="--use-eos-vm-oc", type=bool, help="EOS EVM Contract build dir", default=False)
 
 args=TestHelper.parse_args({"--keep-logs","--dump-error-details","-v","--leave-running","--clean-run" }, applicationSpecificArgs=appArgs)
 debug=args.v
@@ -76,7 +77,7 @@ killAll=args.clean_run
 eosEvmContractRoot=args.eos_evm_contract_root
 gensisJson=args.genesis_json
 readEndpoint=args.read_endpoint
-
+useEosVmOC=args.use_eos_vm_oc
 assert eosEvmContractRoot is not None, "--eos-evm-contract-root is required"
 
 totalProducerNodes=2
