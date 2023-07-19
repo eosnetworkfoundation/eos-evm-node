@@ -32,11 +32,11 @@ rpc_plugin::~rpc_plugin() {}
 
 void rpc_plugin::set_program_options( appbase::options_description& cli, appbase::options_description& cfg ) {
    cfg.add_options()
-      ("http-port", boost::program_options::value<std::string>()->default_value("127.0.0.1:8881"),
+      ("http-port", boost::program_options::value<std::string>()->default_value(kDefaultEth1EndPoint),
         "http port for JSON RPC of the form <address>:<port>")    
-      ("rpc-engine-port", boost::program_options::value<std::string>()->default_value("127.0.0.1:8882"),
+      ("rpc-engine-port", boost::program_options::value<std::string>()->default_value(kDefaultEngineEndPoint),
         "engine port for JSON RPC of the form <address>:<port>")
-      ("eos-evm-node", boost::program_options::value<std::string>()->default_value("127.0.0.1:8001"),
+      ("eos-evm-node", boost::program_options::value<std::string>()->default_value(kDefaultPrivateApiAddr),
         "address to eos-evm-node of the form <address>:<port>")
       ("rpc-threads", boost::program_options::value<uint32_t>()->default_value(16),
         "number of threads for use with rpc")
