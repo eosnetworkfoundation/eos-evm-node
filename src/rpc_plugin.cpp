@@ -8,12 +8,6 @@
 #include <silkworm/silkrpc/settings.hpp>
 #include <silkworm/silkrpc/daemon.hpp>
 
-// #include <agrpc/grpc_context.hpp>
-// #include <grpcpp/grpcpp.h>
-// #include <silkworm/core/types/log.hpp>
-// #include <silkworm/common/settings.hpp>
-// #include <silkworm/common/log.hpp>
-
 class rpc_plugin_impl : std::enable_shared_from_this<rpc_plugin_impl> {
    public:
       rpc_plugin_impl(silkworm::rpc::DaemonSettings settings)
@@ -32,11 +26,11 @@ rpc_plugin::~rpc_plugin() {}
 
 void rpc_plugin::set_program_options( appbase::options_description& cli, appbase::options_description& cfg ) {
    cfg.add_options()
-      ("http-port", boost::program_options::value<std::string>()->default_value(kDefaultEth1EndPoint),
+      ("http-port", boost::program_options::value<std::string>()->default_value(silkworm::kDefaultEth1EndPoint),
         "http port for JSON RPC of the form <address>:<port>")    
-      ("rpc-engine-port", boost::program_options::value<std::string>()->default_value(kDefaultEngineEndPoint),
+      ("rpc-engine-port", boost::program_options::value<std::string>()->default_value(silkworm::kDefaultEngineEndPoint),
         "engine port for JSON RPC of the form <address>:<port>")
-      ("eos-evm-node", boost::program_options::value<std::string>()->default_value(kDefaultPrivateApiAddr),
+      ("eos-evm-node", boost::program_options::value<std::string>()->default_value(silkworm::kDefaultPrivateApiAddr),
         "address to eos-evm-node of the form <address>:<port>")
       ("rpc-threads", boost::program_options::value<uint32_t>()->default_value(16),
         "number of threads for use with rpc")
