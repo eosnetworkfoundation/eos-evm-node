@@ -101,8 +101,8 @@ jobs:
       - name: Build EOS EVM Node
         run: .github/workflows/build-node.sh
         env:
-          CC: gcc-10
-          CXX: g++-10
+          CC: gcc-11
+          CXX: g++-11
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v3
