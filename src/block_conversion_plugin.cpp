@@ -170,6 +170,14 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
 
                   SILK_WARN << "Can't link new block " << *new_block;
 
+                  // Double check if it's duplicated ones.
+                  // We do not need to import block again during reconnection if it's in this cache.
+                  auto dup_block = std::find_if(native_blocks.begin(), native_blocks.end(), [&new_block](const auto& nb){ return nb.id == new_block->id; });
+                  if( dup_block != native_blocks.end() ) {
+                     SILK_WARN << "Receiving duplicated blocks " << new_block->id <<  " It's normal if it's caused by reconnection to SHiP.";
+                     return;
+                  }
+
                   // Find fork block
                   auto fork_block = std::find_if(native_blocks.begin(), native_blocks.end(), [&new_block](const auto& nb){ return nb.id == new_block->prev; });
                   if( fork_block == native_blocks.end() ) {
