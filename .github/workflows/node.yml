@@ -132,7 +132,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install CDT
-        run: sudo apt-get install -y ./cdt*.deb
+        run: apt-get install -y ./cdt*.deb
 
       - name: Download EOS EVM Contract
         uses: AntelopeIO/asset-artifact-download-action@v3
@@ -173,12 +173,12 @@ jobs:
 
       - name: Install Leap
         run: |
-          sudo apt-get install -y ./leap*.deb
+          apt-get install -y ./leap*.deb
           dpkg -L leap-dev | grep TestHarness
           dpkg -L leap | grep cleos
 
       - name: Link Leap TestHarness Module (fix for v4 of leap)
-        run: sudo ln -s /usr/share/leap_testing/tests/TestHarness /usr/lib/python3/dist-packages/TestHarness
+        run: ln -s /usr/share/leap_testing/tests/TestHarness /usr/lib/python3/dist-packages/TestHarness
 
       - name: Checkout EOS EVM Node Repo
         uses: actions/checkout@v3
@@ -199,8 +199,8 @@ jobs:
       - name: Install Test Depedencies
         run: |
           pip install --upgrade web3
-          sudo apt install nodejs
-          sudo apt install npm
+          apt install nodejs
+          apt install npm
           npm install eosjs
           npm install ethereumjs-util
           npm install node-fetch
