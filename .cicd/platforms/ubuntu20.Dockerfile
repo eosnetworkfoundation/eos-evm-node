@@ -6,5 +6,6 @@ RUN apt-get update && apt-get upgrade -y && \
                        cmake                \
                        gcc-10               \
                        g++-10               \
-                       git
+                       git                  \
+                       python3-pip
 RUN pip install -v "conan==1.60.2"
