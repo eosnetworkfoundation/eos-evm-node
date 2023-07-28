@@ -1,0 +1,5 @@
+{
+    "ubuntu22": {
+       "dockerfile": ".cicd/platforms/ubuntu22.Dockerfile"
+    }
+ }

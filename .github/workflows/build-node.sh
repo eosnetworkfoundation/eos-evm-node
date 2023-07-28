@@ -8,11 +8,6 @@ function ee()
     eval "$@"
 }
 
-# install dependencies for self-hosted runners
-ee export DEBIAN_FRONTEND='noninteractive'
-ee sudo apt-get update -q
-ee sudo apt-get install -yqq cmake gcc-10 g++-10
-
 # debug code
 echo "CC='${CC}'"
 echo "CXX='${CXX}'"
