@@ -3,4 +3,3 @@
        "dockerfile": ".cicd/platforms/ubuntu22.Dockerfile"
     }
  }
- 
