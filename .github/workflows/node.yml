@@ -54,7 +54,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: ${{fromJSON(needs.d.outputs.missing-platforms)}}
-    runs-on: ["self-hosted", "enf-x86-beefy"]
+    runs-on: ubunut-latest
     permissions:
       packages: write
       contents: read
