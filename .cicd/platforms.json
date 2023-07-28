@@ -1,0 +1,6 @@
+{
+    "ubuntu20": {
+       "dockerfile": ".cicd/platforms/ubuntu20.Dockerfile"
+    }
+ }
+ 

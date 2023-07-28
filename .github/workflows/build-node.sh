@@ -9,11 +9,10 @@ function ee()
 }
 
 # install dependencies for self-hosted runners
-ee export DEBIAN_FRONTEND='noninteractive'
-ee sudo apt-get update -q
-ee sudo apt-get upgrade -y
-ee sudo apt-get install -yqq cmake gcc-10 g++-10
-ee sudo pip install -v "conan==1.60.2"
+# ee export DEBIAN_FRONTEND='noninteractive'
+# ee sudo apt-get update -q
+# ee sudo apt-get install -yqq cmake gcc-10 g++-10
+# ee sudo pip install -v "conan==1.60.2"
 
 # debug code
 echo "CC='${CC}'"
