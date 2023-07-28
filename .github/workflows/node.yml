@@ -7,11 +7,6 @@ on:
       - release/*
   pull_request:
   workflow_dispatch:
-    inputs:
-      upload-artifacts:
-        description: 'Upload artifacts, including the build.tar.gz, for debugging.'
-        type: boolean
-        default: false
 
 defaults:
   run:
@@ -106,7 +101,133 @@ jobs:
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v3
-        if: inputs.upload-artifacts || false
         with:
           name: build.tar.gz
           path: build.tar.gz
+
+  integration-test:
+    name: EOS EVM Integration Tests
+    needs: [d, build]
+    if: always() && needs.d.result == 'success' && needs.build.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ ubuntu22 ]
+    runs-on: ubuntu-latest
+    container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
+    env:
+      CC: gcc-11
+      CXX: g++-11
+      DCMAKE_BUILD_TYPE: 'Release'
+
+    steps:
+      - name: Download CDT
+        uses: AntelopeIO/asset-artifact-download-action@v3
+        with:
+          owner: AntelopeIO
+          repo: cdt
+          target: 'v3.1.0'
+          prereleases: false
+          file: 'cdt_.*amd64.deb'
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install CDT
+        run: sudo apt-get install -y ./cdt*.deb
+
+      - name: Download EOS EVM Contract
+        uses: AntelopeIO/asset-artifact-download-action@v3
+        with:
+          owner: eosnetworkfoundation
+          repo: eos-evm
+          target: 'main'
+          file: 'contract.tar.gz'
+          artifact-name: contract.test-actions-off.tar.gz
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract EOS EVM Contract
+        run: |
+          mkdir contract
+          mv contract.tar.gz contract/
+          cd contract
+          tar xvg contract.tar.gz
+  
+      - name: Download leap-dev binary
+        uses: AntelopeIO/asset-artifact-download-action@v3
+        with:
+          owner: AntelopeIO
+          repo: leap
+          target: 'v4'
+          prereleases: false
+          file: 'leap-dev.*(x86_64|amd64).deb'
+          container-package: experimental-binaries
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download leap binary
+        uses: AntelopeIO/asset-artifact-download-action@v3
+        with:
+          owner: AntelopeIO
+          repo: leap
+          target: 'v4'
+          file: 'leap.*(x86_64|amd64).deb'
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Leap
+        run: |
+          sudo apt-get install -y ./leap*.deb
+          dpkg -L leap-dev | grep TestHarness
+          dpkg -L leap | grep cleos
+
+      - name: Link Leap TestHarness Module (fix for v4 of leap)
+        run: sudo ln -s /usr/share/leap_testing/tests/TestHarness /usr/lib/python3/dist-packages/TestHarness
+
+      - name: Checkout EOS EVM Node Repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: 'recursive'
+          token: ${{ steps.auth.outputs.token }}
+
+      - name: Download EOS EVM Node builddir
+        uses: actions/download-artifact@v3
+        with:
+          name: build.tar.gz
+
+      - name: Extract EOS EVM Node builddir
+        run: |
+          tar xfv build.tar.gz
+
+      - name: Install Test Depedencies
+        run: |
+          pip install --upgrade web3
+          sudo apt install nodejs
+          sudo apt install npm
+          npm install eosjs
+          npm install ethereumjs-util
+          npm install node-fetch
+          npm install http-jsonrpc-server
+          npm install dotenv
+          npm install is-valid-hostname
+
+      - name: Check Depedency Versions
+        run: |
+          pip show web3
+          node --version
+
+      - name: Test Leap Integration
+        run: |
+          mkdir test_run_root
+          cd test_run_root
+          ./../tests/leap/nodeos_eos_evm_test.py -v --eos-evm-contract-root ../contract/build --eos-evm-build-root ../build --use-tx-wrapper ../peripherals/tx_wrapper
+
+      - name: Prepare Logs
+        if: failure()
+        run: |
+          tar -czf leap-int-test-logs.tar.gz test_run_root/*
+
+      - name: Upload logs from failed tests
+        uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: leap-int-test-logs.tar.gz
+          path: leap-int-test-logs.tar.gz
+        

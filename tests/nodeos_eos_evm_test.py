@@ -20,14 +20,15 @@ from binascii import unhexlify
 from web3 import Web3
 import rlp
 
-sys.path.append(os.getcwd())
 sys.path.append(os.path.join(os.getcwd(), "tests"))
 
-from TestHarness import Cluster, TestHelper, Utils, WalletMgr
+os.environ["CORE_SYMBOL_NAME"]='EOS'
+print(f"CORE_SYMBOL_NAME: {os.environ.get('CORE_SYMBOL_NAME')}")
+
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr, CORE_SYMBOL
 from TestHarness.TestHelper import AppArgs
 from TestHarness.testUtils import ReturnType
 from TestHarness.testUtils import unhandledEnumType
-from core_symbol import CORE_SYMBOL
 
 from antelope_name import convert_name_to_value
 
@@ -53,10 +54,13 @@ from antelope_name import convert_name_to_value
 # --eos-evm-build-root should point to the root of EOS EVM build dir
 # --eos-evm-contract-root should point to root of EOS EVM contract build dir
 #
-# Example:
-#  cd ~/ext/leap/build
-#  edit tests/core_symbol.py to be EOS
-#  ~/ext/eos-evm/tests/leap/nodeos_eos_evm_test.py --eos-evm-contract-root ~/ext/eos-evm/contract/build --eos-evm-build-root ~/ext/eos-evm/build --use-tx-wrapper ~/ext/eos-evm/peripherals/tx_wrapper --leave-running
+# Example (Running with leap src build):
+#  cd ~/leap/build
+#  ~/eos-evm/tests/leap/nodeos_eos_evm_test.py --eos-evm-contract-root ~/eos-evm/contract/build --eos-evm-build-root ~/eos-evm/build --use-tx-wrapper ~/eos-evm/peripherals/tx_wrapper --leave-running
+#
+# Example (Running with leap dev-install):
+#  export PYTHONPATH=<leap-dev-install-root>/lib/python3/dist-packages
+#  ~/eos-evm/tests/leap/nodeos_eos_evm_test.py --eos-evm-contract-root ~/eos-evm/contract/build --eos-evm-build-root ~/eos-evm/build --use-tx-wrapper ~/eos-evm/peripherals/tx_wrapper --leave-running
 #
 #  Launches wallet at port: 9899
 #    Example: bin/cleos --wallet-url http://127.0.0.1:9899 ...
@@ -109,13 +113,13 @@ def interact_with_storage_contract(dest, nonce):
             nonce=nonce,
             gas=100000,       #100k Gas
             gasPrice=gasP,
-            to=Web3.toChecksumAddress(dest),
+            to=Web3.to_checksum_address(dest),
             value=amount,
             data=unhexlify("6057361d00000000000000000000000000000000000000000000000000000000000000%02x" % nonce),
             chainId=evmChainId
         ), evmSendKey)
 
-        actData = {"miner":minerAcc.name, "rlptx":Web3.toHex(signed_trx.rawTransaction)[2:]}
+        actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
         retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name))
         assert retValue[0], "pushtx to ETH contract failed."
         Utils.Print("\tBlock#", retValue[1]["processed"]["block_num"])
@@ -135,6 +139,7 @@ HOST="127.0.0.1"
 PORT="18888"
 EOS_EVM_ACCOUNT="evmevmevmevm"
 EOS_SENDER="{txWrapAcc.name}"
+EOS_PERMISSION="active"
 '''
         envFile.write(env)
 
@@ -183,6 +188,9 @@ def processUrllibRequest(endpoint, payload={}, silentErrors=False, exitOnError=F
                     unhandledEnumType(returnType)
         else:
             return None
+    except:
+        Utils.Print("Unknown exception occurred during processUrllibRequest")
+        raise
 
     if exitMsg is not None:
         exitMsg=": " + exitMsg
@@ -217,7 +225,7 @@ def normalize_address(x, allow_blank=False):
     return x
 
 def makeContractAddress(sender, nonce):
-    return Web3.toHex(Web3.keccak(rlp.encode([normalize_address(sender), nonce]))[12:])
+    return Web3.to_hex(Web3.keccak(rlp.encode([normalize_address(sender), nonce]))[12:])
 
 def makeReservedEvmAddress(account):
     bytearr = [0xbb, 0xbb, 0xbb, 0xbb,
@@ -370,7 +378,7 @@ try:
 
     # init with 1 Million EOS
     for i,k in enumerate(addys):
-        print("addys: [{0}] [{1}] [{2}]".format(i,k[2:].lower(), len(k[2:])))
+        Utils.Print("addys: [{0}] [{1}] [{2}]".format(i,k[2:].lower(), len(k[2:])))
         transferAmount="1000000.0000 {0}".format(CORE_SYMBOL)
         Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.eosioAccount.name, evmAcc.name))
         prodNode.transferFunds(cluster.eosioAccount, evmAcc, transferAmount, "0x" + k[2:].lower(), waitForTransBlock=True)
@@ -389,13 +397,13 @@ try:
         nonce=nonce,
         gas=100000,       #100k Gas
         gasPrice=gasP,
-        to=Web3.toChecksumAddress(toAdd),
+        to=Web3.to_checksum_address(toAdd),
         value=amount,
         data=b'',
         chainId=evmChainId
     ), evmSendKey)
 
-    actData = {"miner":minerAcc.name, "rlptx":Web3.toHex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
     trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name))
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
 
@@ -415,13 +423,13 @@ try:
         nonce=nonce,
         gas=100000,       #100k Gas
         gasPrice=gasP,
-        to=Web3.toChecksumAddress(toAdd),
+        to=Web3.to_checksum_address(toAdd),
         value=amount,
         data=b'',
         chainId=evmChainId
     ), evmSendKey)
 
-    actData = {"miner":minerAcc.name, "rlptx":Web3.toHex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
     Utils.Print("Send balance again, with correct nonce")
     retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     assert retValue[0], f"push trx should have succeeded: {retValue}"
@@ -434,13 +442,13 @@ try:
         nonce=nonce,
         gas=100000,       #100k Gas
         gasPrice=gasP,
-        to=Web3.toChecksumAddress(toAdd),
+        to=Web3.to_checksum_address(toAdd),
         value=amount,
         data=b'',
         chainId=evmChainId
     ), evmSendKey)
 
-    actData = {"miner":minerAcc.name, "rlptx":Web3.toHex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
     Utils.Print("Send balance again, with invalid chainid")
     retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     assert not retValue[0], f"push trx should have failed: {retValue}"
@@ -468,11 +476,11 @@ try:
         nonce=nonce,
         gas=1000000,       #5M Gas
         gasPrice=gasP,
-        data=Web3.toBytes(hexstr='608060405234801561001057600080fd5b50610150806100206000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c80632e64cec11461003b5780636057361d14610059575b600080fd5b610043610075565b60405161005091906100a1565b60405180910390f35b610073600480360381019061006e91906100ed565b61007e565b005b60008054905090565b8060008190555050565b6000819050919050565b61009b81610088565b82525050565b60006020820190506100b66000830184610092565b92915050565b600080fd5b6100ca81610088565b81146100d557600080fd5b50565b6000813590506100e7816100c1565b92915050565b600060208284031215610103576101026100bc565b5b6000610111848285016100d8565b9150509291505056fea2646970667358fe12209ffe32fe5779018f7ee58886c856a4cfdf550f2df32cec944f57716a3abf4a5964736f6c63430008110033'),
+        data=Web3.to_bytes(hexstr='608060405234801561001057600080fd5b50610150806100206000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c80632e64cec11461003b5780636057361d14610059575b600080fd5b610043610075565b60405161005091906100a1565b60405180910390f35b610073600480360381019061006e91906100ed565b61007e565b005b60008054905090565b8060008190555050565b6000819050919050565b61009b81610088565b82525050565b60006020820190506100b66000830184610092565b92915050565b600080fd5b6100ca81610088565b81146100d557600080fd5b50565b6000813590506100e7816100c1565b92915050565b600060208284031215610103576101026100bc565b5b6000610111848285016100d8565b9150509291505056fea2646970667358fe12209ffe32fe5779018f7ee58886c856a4cfdf550f2df32cec944f57716a3abf4a5964736f6c63430008110033'),
         chainId=evmChainId
     ), evmSendKey)
 
-    actData = {"miner":minerAcc.name, "rlptx":Web3.toHex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
     retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     assert retValue[0], f"push trx should have succeeded: {retValue}"
     nonce = interact_with_storage_contract(makeContractAddress(fromAdd, nonce), nonce)
@@ -588,12 +596,12 @@ try:
         nonce=nonce,
         gas=100000,       #100k Gas
         gasPrice=gasP,
-        to=Web3.toChecksumAddress(toAdd),
+        to=Web3.to_checksum_address(toAdd),
         value=int(amount*10000*szabo*100), # .0001 EOS is 100 szabos
         data=b'',
         chainId=evmChainId
     ), evmSendKey)
-    actData = {"miner":minerAcc.name, "rlptx":Web3.toHex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
     trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
     row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
@@ -621,12 +629,12 @@ try:
         nonce=nonce,
         gas=100000,       #100k Gas
         gasPrice=gasP,
-        to=Web3.toChecksumAddress(toAdd),
+        to=Web3.to_checksum_address(toAdd),
         value=int(amount*10000*szabo*100),
         data=b'',
         chainId=evmChainId
     ), evmSendKey)
-    actData = {"miner":minerAcc.name, "rlptx":Web3.toHex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
     trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
     row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
@@ -653,17 +661,33 @@ try:
     os.makedirs(dataDir)
     outFile = open(nodeStdOutDir, "w")
     errFile = open(nodeStdErrDir, "w")
-    cmd = "%s/cmd/eos-evm-node --plugin=blockchain_plugin --ship-endpoint=127.0.0.1:8999 --genesis-json=%s --chain-data=%s --verbosity=5 --nocolor=1 --plugin=rpc_plugin --eos-evm-node=127.0.0.1:8080 --http-port=0.0.0.0:8881 --api-spec=eth,debug,net,trace --chaindata=%s" % (eosEvmBuildRoot, gensisJson, dataDir, dataDir)
+    cmd = "%s/cmd/eos-evm-node --plugin=blockchain_plugin --ship-endpoint=127.0.0.1:8999 --genesis-json=%s --chain-data=%s --verbosity=6 --nocolor=1 --plugin=rpc_plugin --eos-evm-node=127.0.0.1:8080 --http-port=0.0.0.0:8881 --api-spec=eth,debug,net,trace --chaindata=%s" % (eosEvmBuildRoot, gensisJson, dataDir, dataDir)
     Utils.Print("Launching: %s" % cmd)
     evmNodePOpen=Utils.delayedCheckOutput(cmd, stdout=outFile, stderr=errFile)
 
-    time.sleep(10) # allow time to sync trxs
+    Utils.Print(f"Allow time for evm node to start and sync trxs - start {time.ctime()}")
+    time.sleep(60) # allow time to sync trxs
+    Utils.Print(f"Allow time for evm node to start and sync trxs - finish {time.ctime()}")
 
     # Validate all balances are the same on both sides
     rows=prodNode.getTable(evmAcc.name, evmAcc.name, "account")
     for row in rows['rows']:
         Utils.Print("Checking 0x{0} balance".format(row['eth_address']))
-        r = w3.eth.get_balance(Web3.toChecksumAddress('0x'+row['eth_address']))
+        r = 0
+        try:
+            r = w3.eth.get_balance(Web3.to_checksum_address('0x'+row['eth_address']))
+        except:
+            Utils.Print("Exception thrown - Checking 0x{0} balance".format(row['eth_address']))
+        if int(row['balance'],16) != 0:
+            max = 0
+            while r == 0 and max < 60:
+                time.sleep(1)
+                max+=1
+                Utils.Print("Re-Checking 0x{0} balance".format(row['eth_address']))
+                try:
+                    r = w3.eth.get_balance(Web3.to_checksum_address('0x'+row['eth_address']))
+                except:
+                    Utils.Print("Exception thrown - Re-Checking 0x{0} balance".format(row['eth_address']))
         assert r == int(row['balance'],16), f"{row['eth_address']} {r} != {int(row['balance'],16)}"
 
     foundErr = False
