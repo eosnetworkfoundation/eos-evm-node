@@ -79,7 +79,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ ubuntu20 ]
+        platform: [ ubuntu22 ]
     runs-on: ubuntu-latest
     container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
 
