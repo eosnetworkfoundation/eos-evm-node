@@ -146,10 +146,13 @@ jobs:
 
       - name: Extract EOS EVM Contract
         run: |
+          pwd
+          ls
           mkdir contract
           mv contract.tar.gz contract/
           cd contract
-          tar xvg contract.tar.gz
+          ls
+          tar xvf contract.tar.gz
   
       - name: Download leap-dev binary
         uses: AntelopeIO/asset-artifact-download-action@v3
@@ -194,7 +197,9 @@ jobs:
 
       - name: Extract EOS EVM Node builddir
         run: |
-          tar xfv build.tar.gz
+          pwd
+          ls
+          tar xvf build.tar.gz
 
       - name: Install Test Depedencies
         run: |
