@@ -121,6 +121,11 @@ jobs:
       DCMAKE_BUILD_TYPE: 'Release'
 
     steps:
+      - name: Update Package Index & Upgrade Packages
+        run: |
+          apt-get update
+          apt-get upgrade -y
+
       - name: Download CDT
         uses: AntelopeIO/asset-artifact-download-action@v3
         with:
