@@ -188,6 +188,13 @@ jobs:
       - name: Link Leap TestHarness Module (fix for v4 of leap)
         run: ln -s /usr/share/leap_testing/tests/TestHarness /usr/lib/python3/dist-packages/TestHarness
 
+      - name: Authenticate
+        id: auth
+        uses: AntelopeIO/github-app-token-action@v1
+        with:
+          app_id: ${{ secrets.TRUSTEVM_CI_APP_ID }}
+          private_key: ${{ secrets.TRUSTEVM_CI_APP_KEY }}
+
       - name: Checkout EOS EVM Node Repo
         uses: actions/checkout@v3
         with:
