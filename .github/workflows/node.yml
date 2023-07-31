@@ -150,14 +150,19 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract EOS EVM Contract
+        id: evm-contract
         run: |
           pwd
           ls
           mkdir contract
           mv contract.tar.gz contract/
           cd contract
+          pwd
           ls
           tar xvf contract.tar.gz
+          cd build
+          pwd
+          echo "EVM_CONTRACT=$(pwd)" >> "$GITHUB_OUTPUT"
 
       - name: Download leap-dev binary
         uses: AntelopeIO/asset-artifact-download-action@v3
@@ -208,10 +213,17 @@ jobs:
           name: build.tar.gz
 
       - name: Extract EOS EVM Node builddir
+        id: evm-node-build
         run: |
           pwd
           ls
+          cd peripherals
+          cd tx_wrapper
+          echo "EVM_NODE_TX_WRAPPER=$(pwd)" >> "$GITHUB_OUTPUT"
+          cd ../..
           tar xvf build.tar.gz
+          cd build
+          echo "EVM_NODE_BUILD=$(pwd)" >> "$GITHUB_OUTPUT"
 
       - name: Install Test Depedencies
         run: |
@@ -234,7 +246,7 @@ jobs:
         run: |
           mkdir test_run_root
           cd test_run_root
-          ./../tests/nodeos_eos_evm_test.py -v --eos-evm-contract-root ../contract/build --eos-evm-build-root ../build --use-tx-wrapper ../peripherals/tx_wrapper
+          ./../tests/nodeos_eos_evm_test.py -v --eos-evm-contract-root ${{ steps.evm-contract.outputs.EVM_CONTRACT }} --eos-evm-build-root ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }} --use-tx-wrapper ${{ steps.evm-node-build.outputs.EVM_NODE_TX_WRAPPER }}
 
       - name: Prepare Logs
         if: failure()
