@@ -234,7 +234,7 @@ jobs:
         run: |
           mkdir test_run_root
           cd test_run_root
-          ./../tests/leap/nodeos_eos_evm_test.py -v --eos-evm-contract-root ../contract/build --eos-evm-build-root ../build --use-tx-wrapper ../peripherals/tx_wrapper
+          ./../tests/nodeos_eos_evm_test.py -v --eos-evm-contract-root ../contract/build --eos-evm-build-root ../build --use-tx-wrapper ../peripherals/tx_wrapper
 
       - name: Prepare Logs
         if: failure()
