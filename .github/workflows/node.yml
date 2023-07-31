@@ -158,7 +158,11 @@ jobs:
           cd contract
           ls
           tar xvf contract.tar.gz
-  
+
+      - name: Leap Dependency
+        run: |
+          apt-get install -y libssl-dev
+
       - name: Download leap-dev binary
         uses: AntelopeIO/asset-artifact-download-action@v3
         with:
