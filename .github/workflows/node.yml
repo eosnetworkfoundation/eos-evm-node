@@ -166,7 +166,7 @@ jobs:
           repo: leap
           target: 'v4'
           prereleases: false
-          file: 'leap-dev.*${{matrix.platform}}.*(x86_64|amd64).deb'
+          file: 'leap-dev.*(x86_64|amd64).deb'
           container-package: experimental-binaries
           token: ${{ secrets.GITHUB_TOKEN }}
 
