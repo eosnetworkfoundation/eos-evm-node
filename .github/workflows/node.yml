@@ -159,10 +159,6 @@ jobs:
           ls
           tar xvf contract.tar.gz
 
-      - name: Leap Dependency
-        run: |
-          apt-get install -y libssl-dev
-
       - name: Download leap-dev binary
         uses: AntelopeIO/asset-artifact-download-action@v3
         with:
@@ -180,7 +176,7 @@ jobs:
           owner: AntelopeIO
           repo: leap
           target: 'v4'
-          file: 'leap.*(x86_64|amd64).deb'
+          file: 'leap.*ubuntu22.04_(x86_64|amd64).deb'
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Leap
