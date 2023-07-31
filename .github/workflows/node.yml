@@ -246,6 +246,13 @@ jobs:
         run: |
           mkdir test_run_root
           cd test_run_root
+          pwd
+          echo "See if contract root still looks good."
+          ls ${{ steps.evm-contract.outputs.EVM_CONTRACT }}
+          echo "See if build root still looks good."
+          ls ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }}
+          echo "See if tx_wrapper still looks good."
+          ls ${{ steps.evm-node-build.outputs.EVM_NODE_TX_WRAPPER }}
           ./../tests/nodeos_eos_evm_test.py -v --eos-evm-contract-root ${{ steps.evm-contract.outputs.EVM_CONTRACT }} --eos-evm-build-root ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }} --use-tx-wrapper ${{ steps.evm-node-build.outputs.EVM_NODE_TX_WRAPPER }}
 
       - name: Prepare Logs
