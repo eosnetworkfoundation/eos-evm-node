@@ -218,12 +218,11 @@ jobs:
         run: |
           pwd
           ls
-          cd peripherals
-          cd tx_wrapper
+          pushd eos-evm-node/peripherals/tx_wrapper
           echo "EVM_NODE_TX_WRAPPER=$(pwd)" >> "$GITHUB_OUTPUT"
-          cd ../..
-          mv build.tar.gz eos-node-build/
-          cd eod-node-build
+          popd
+          mv build.tar.gz eos-evm-node/
+          cd eos-evm-node
           tar xvf build.tar.gz
           cd build
           echo "EVM_NODE_BUILD=$(pwd)" >> "$GITHUB_OUTPUT"
