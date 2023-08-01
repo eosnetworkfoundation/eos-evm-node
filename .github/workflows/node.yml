@@ -223,6 +223,7 @@ jobs:
           popd
           mv build.tar.gz eos-evm-node/
           cd eos-evm-node
+          echo "EVM_NODE_ROOT=$(pwd)" >> "$GITHUB_OUTPUT"
           tar xvf build.tar.gz
           cd build
           echo "EVM_NODE_BUILD=$(pwd)" >> "$GITHUB_OUTPUT"
@@ -259,7 +260,7 @@ jobs:
           ls ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }}
           echo "See if tx_wrapper still looks good."
           ls ${{ steps.evm-node-build.outputs.EVM_NODE_TX_WRAPPER }}
-          ./../tests/nodeos_eos_evm_test.py -v --eos-evm-contract-root ${{ steps.evm-evm-contract.outputs.EVM_CONTRACT }} --eos-evm-build-root ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }} --use-tx-wrapper ${{ steps.evm-node-build.outputs.EVM_NODE_TX_WRAPPER }}
+          .${{ steps.evm-node-build.outputs.EVM_NODE_ROOT }}/tests/nodeos_eos_evm_test.py -v --eos-evm-contract-root ${{ steps.evm-evm-contract.outputs.EVM_CONTRACT }} --eos-evm-build-root ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }} --use-tx-wrapper ${{ steps.evm-node-build.outputs.EVM_NODE_TX_WRAPPER }}
 
       - name: Prepare Logs
         if: failure()
