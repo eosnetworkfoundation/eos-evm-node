@@ -263,7 +263,9 @@ jobs:
           ls ${{ steps.evm-node-build.outputs.EVM_NODE_TX_WRAPPER }}
           echo "See if node root still looks good."
           ls ${{ steps.evm-node-build.outputs.EVM_NODE_ROOT }}
-          .${{ steps.evm-node-build.outputs.EVM_NODE_ROOT }}/tests/nodeos_eos_evm_test.py -v --eos-evm-contract-root ${{ steps.evm-evm-contract.outputs.EVM_CONTRACT }} --eos-evm-build-root ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }} --use-tx-wrapper ${{ steps.evm-node-build.outputs.EVM_NODE_TX_WRAPPER }}
+          echo "See if node root tests still looks good."
+          ls ${{ steps.evm-node-build.outputs.EVM_NODE_ROOT }}/tests
+          ${{ steps.evm-node-build.outputs.EVM_NODE_ROOT }}/tests/nodeos_eos_evm_test.py -v --eos-evm-contract-root ${{ steps.evm-evm-contract.outputs.EVM_CONTRACT }} --eos-evm-build-root ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }} --use-tx-wrapper ${{ steps.evm-node-build.outputs.EVM_NODE_TX_WRAPPER }}
 
       - name: Prepare Logs
         if: failure()
