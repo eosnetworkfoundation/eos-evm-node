@@ -206,6 +206,7 @@ jobs:
           fetch-depth: 0
           submodules: 'recursive'
           token: ${{ steps.auth.outputs.token }}
+          path: eos-evm-node
 
       - name: Download EOS EVM Node builddir
         uses: actions/download-artifact@v3
@@ -221,6 +222,8 @@ jobs:
           cd tx_wrapper
           echo "EVM_NODE_TX_WRAPPER=$(pwd)" >> "$GITHUB_OUTPUT"
           cd ../..
+          mv build.tar.gz eos-node-build/
+          cd eod-node-build
           tar xvf build.tar.gz
           cd build
           echo "EVM_NODE_BUILD=$(pwd)" >> "$GITHUB_OUTPUT"
@@ -251,29 +254,13 @@ jobs:
           cd test_run_root
           ls
           pwd
-          echo "Shoule be in /__w/eos-evm-node/eos-evm-node/."
-          pushd ..
-          pwd
-          ls
-          echo "Shoule be in /__w/eos-evm-node/eos-evm-node/contract."
-          pushd contract
-          pwd
-          ls
-          echo "Shoule be in /__w/eos-evm-node/eos-evm-node/contract/build."
-          pushd build
-          pwd
-          ls
-          echo "Shoule be in /__w/eos-evm-node/eos-evm-node/test_run_root"
-          popd
-          pwd
-          ls
-          echo "Shoule be in /__w/eos-evm-node/eos-evm-node/peripherals/trx_wrapper"
-          popd
-          pushd ../peripherals/tx_wrapper
-          pwd
-          ls
-          popd
-          ./../tests/nodeos_eos_evm_test.py -v --eos-evm-contract-root ${{ steps.evm-contract.outputs.EVM_CONTRACT }} --eos-evm-build-root ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }} --use-tx-wrapper ${{ steps.evm-node-build.outputs.EVM_NODE_TX_WRAPPER }}
+          echo "See if contract root still looks good."
+          ls ${{ steps.evm-contract.outputs.EVM_CONTRACT }}
+          echo "See if build root still looks good."
+          ls ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }}
+          echo "See if tx_wrapper still looks good."
+          ls ${{ steps.evm-node-build.outputs.EVM_NODE_TX_WRAPPER }}
+          ./../tests/nodeos_eos_evm_test.py -v --eos-evm-contract-root ${{ steps.evm-evm-contract.outputs.EVM_CONTRACT }} --eos-evm-build-root ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }} --use-tx-wrapper ${{ steps.evm-node-build.outputs.EVM_NODE_TX_WRAPPER }}
 
       - name: Prepare Logs
         if: failure()
