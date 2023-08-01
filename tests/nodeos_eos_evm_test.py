@@ -680,7 +680,7 @@ try:
             Utils.Print("Exception thrown - Checking 0x{0} balance".format(row['eth_address']))
         if int(row['balance'],16) != 0:
             max = 0
-            while r == 0 and max < 60:
+            while r == 0 and max < 600:
                 time.sleep(1)
                 max+=1
                 Utils.Print("Re-Checking 0x{0} balance".format(row['eth_address']))
