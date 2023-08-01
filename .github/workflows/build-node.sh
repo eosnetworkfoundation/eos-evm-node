@@ -21,6 +21,6 @@ ee make -j "$(nproc)"
 
 # pack
 ee popd
-ee 'tar -czf build.tar.gz build/*'
+ee 'tar -czf --exclude "*.o" build.tar.gz build/*'
 
 echo "Done! - ${0##*/}"
