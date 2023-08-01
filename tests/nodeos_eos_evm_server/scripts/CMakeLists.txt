@@ -1,0 +1,7 @@
+configure_file( deploy-blockhash.js . COPYONLY )
+configure_file( deploy-blocknum.js . COPYONLY )
+configure_file( deploy-eventor.js . COPYONLY )
+configure_file( deploy-recursive.js . COPYONLY )
+configure_file( deploy-token.js . COPYONLY )
+configure_file( deploy-uniswap.js . COPYONLY )
+configure_file( deploy.js . COPYONLY )

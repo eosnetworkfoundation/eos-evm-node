@@ -200,14 +200,6 @@ jobs:
           app_id: ${{ secrets.TRUSTEVM_CI_APP_ID }}
           private_key: ${{ secrets.TRUSTEVM_CI_APP_KEY }}
 
-      - name: Checkout EOS EVM Node Repo
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-          submodules: 'recursive'
-          token: ${{ steps.auth.outputs.token }}
-          path: eos-evm-node
-
       - name: Download EOS EVM Node builddir
         uses: actions/download-artifact@v3
         with:
@@ -216,18 +208,13 @@ jobs:
       - name: Extract EOS EVM Node builddir
         id: evm-node-build
         run: |
-          pwd
-          ls
-          pushd eos-evm-node/peripherals/tx_wrapper
-          echo "EVM_NODE_TX_WRAPPER=$(pwd)" >> "$GITHUB_OUTPUT"
-          popd
+          mkdir eos-evm-node
           mv build.tar.gz eos-evm-node/
-          cd eos-evm-node
-          ls
-          echo "EVM_NODE_ROOT=$(pwd)" >> "$GITHUB_OUTPUT"
+          pushd eos-evm-node
           tar xvf build.tar.gz
-          cd build
+          pushd build
           echo "EVM_NODE_BUILD=$(pwd)" >> "$GITHUB_OUTPUT"
+          popd
 
       - name: Install Test Depedencies
         run: |
@@ -259,13 +246,7 @@ jobs:
           ls ${{ steps.evm-contract.outputs.EVM_CONTRACT }}
           echo "See if build root still looks good."
           ls ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }}
-          echo "See if tx_wrapper still looks good."
-          ls ${{ steps.evm-node-build.outputs.EVM_NODE_TX_WRAPPER }}
-          echo "See if node root still looks good."
-          ls ${{ steps.evm-node-build.outputs.EVM_NODE_ROOT }}
-          echo "See if node root tests still looks good."
-          ls ${{ steps.evm-node-build.outputs.EVM_NODE_ROOT }}/tests
-          ${{ steps.evm-node-build.outputs.EVM_NODE_ROOT }}/tests/nodeos_eos_evm_test.py -v --eos-evm-contract-root ${{ steps.evm-contract.outputs.EVM_CONTRACT }} --eos-evm-build-root ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }} --use-tx-wrapper ${{ steps.evm-node-build.outputs.EVM_NODE_TX_WRAPPER }}
+          ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }}/tests/nodeos_eos_evm_test.py -v --eos-evm-contract-root ${{ steps.evm-contract.outputs.EVM_CONTRACT }} --eos-evm-build-root ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }} --use-tx-wrapper ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }}/peripherals/tx_wrapper
 
       - name: Prepare Logs
         if: failure()
