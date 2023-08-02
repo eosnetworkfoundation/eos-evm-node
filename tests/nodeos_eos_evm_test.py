@@ -102,6 +102,7 @@ walletMgr=WalletMgr(True)
 pnodes=1
 total_nodes=pnodes + 2
 evmNodePOpen = None
+evmRPCPOpen = None
 
 def interact_with_storage_contract(dest, nonce):
     for i in range(1, 5): # execute a few
