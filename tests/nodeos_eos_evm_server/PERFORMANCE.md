@@ -50,7 +50,7 @@ ln -s ~/evmperf/eos-evm/tests/leap/nodeos_eos_evm_server.py nodeos_eos_evm_serve
 sed -i 's/SYS/EOS/g' core_symbol.py
 python3 -m venv venv
 source venv/bin/activate
-pip install 'web3<6' flask flask-cors
+pip install 'web3>=6' flask flask-cors
 ```
 
 
