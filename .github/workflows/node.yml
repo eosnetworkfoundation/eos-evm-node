@@ -219,6 +219,8 @@ jobs:
         run: |
           apt-get update
           apt-get upgrade -y
+          apt update
+          apt upgrade -y
 
       - name: Download CDT
         uses: AntelopeIO/asset-artifact-download-action@v3
@@ -307,6 +309,8 @@ jobs:
 
       - name: Install Test Depedencies
         run: |
+          apt install -y nvm
+          nvm use lts/hydrogen
           pip install --upgrade web3
           apt install -y nodejs
           apt install -y npm
