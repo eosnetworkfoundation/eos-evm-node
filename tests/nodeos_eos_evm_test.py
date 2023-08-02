@@ -661,13 +661,22 @@ try:
     os.makedirs(dataDir)
     outFile = open(nodeStdOutDir, "w")
     errFile = open(nodeStdErrDir, "w")
-    cmd = "%s/src/eos-evm-node --plugin=blockchain_plugin --ship-endpoint=127.0.0.1:8999 --genesis-json=%s --chain-data=%s --verbosity=6 --nocolor=1 --plugin=rpc_plugin --engine-port=127.0.0.1:8080 --chain-data=%s" % (eosEvmBuildRoot, gensisJson, dataDir, dataDir)
-    Utils.Print("Launching: %s" % cmd)
+    cmd = f"{eosEvmBuildRoot}/src/eos-evm-node --plugin=blockchain_plugin --ship-endpoint=127.0.0.1:8999 --genesis-json={gensisJson} --verbosity=6 --nocolor=1 --chain-data={dataDir}"
+    Utils.Print(f"Launching: {cmd}")
     evmNodePOpen=Utils.delayedCheckOutput(cmd, stdout=outFile, stderr=errFile)
 
     Utils.Print(f"Allow time for evm node to start and sync trxs - start {time.ctime()}")
-    time.sleep(60) # allow time to sync trxs
+    time.sleep(20) # allow time to sync trxs
     Utils.Print(f"Allow time for evm node to start and sync trxs - finish {time.ctime()}")
+
+    # Launch eos-evm-rpc
+    rpcStdOutDir = dataDir + "/eos-evm-rpc.stdout"
+    rpcStdErrDir = dataDir + "/eos-evm-rpc.stderr"
+    outFile = open(rpcStdOutDir, "w")
+    errFile = open(rpcStdErrDir, "w")
+    cmd = f"{eosEvmBuildRoot}/src/eos-evm-rpc --eos-evm-node=127.0.0.1:8080 --http-port=0.0.0.0:8881 --chaindata={dataDir} --api-spec=eth,debug,net,trace"
+    Utils.Print(f"Launching: {cmd}")
+    evmRPCPOpen=Utils.delayedCheckOutput(cmd, stdout=outFile, stderr=errFile)
 
     # Validate all balances are the same on both sides
     rows=prodNode.getTable(evmAcc.name, evmAcc.name, "account")
@@ -695,7 +704,14 @@ try:
     lines = stdErrFile.readlines()
     for line in lines:
         if line.find("ERROR") != -1 or line.find("CRIT") != -1:
-            Utils.Print("  Found ERROR in EOS EVM log: ", line)
+            Utils.Print("  Found ERROR in EOS EVM NODE log: ", line)
+            foundErr = True
+
+    stdErrFile = open(rpcStdErrDir, "r")
+    lines = stdErrFile.readlines()
+    for line in lines:
+        if line.find("ERROR") != -1 or line.find("CRIT") != -1:
+            Utils.Print("  Found ERROR in EOS EVM RPC log: ", line)
             foundErr = True
 
     testSuccessful= not foundErr
@@ -704,6 +720,8 @@ finally:
     if killEosInstances:
         if evmNodePOpen is not None:
             evmNodePOpen.kill()
+        if evmRPCPOpen is not None:
+            evmRPCPOpen.kill()
         if txWrapPOpen is not None:
             txWrapPOpen.kill()
 
