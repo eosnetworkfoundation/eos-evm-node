@@ -84,7 +84,7 @@ keepLogs=args.keep_logs
 killAll=args.clean_run
 eosEvmContractRoot=args.eos_evm_contract_root
 eosEvmBuildRoot=args.eos_evm_build_root
-gensisJson=args.genesis_json
+genesisJson=args.genesis_json
 useTrxWrapper=args.use_tx_wrapper
 
 assert eosEvmContractRoot is not None, "--eos-evm-contract-root is required"
@@ -485,16 +485,16 @@ try:
     assert retValue[0], f"push trx should have succeeded: {retValue}"
     nonce = interact_with_storage_contract(makeContractAddress(fromAdd, nonce), nonce)
 
-    if gensisJson[0] != '/': gensisJson = os.path.realpath(gensisJson)
-    f=open(gensisJson,"w")
+    if genesisJson[0] != '/': genesisJson = os.path.realpath(genesisJson)
+    f=open(genesisJson,"w")
     f.write(json.dumps(genesis_info))
     f.close()
 
     Utils.Print("#####################################################")
-    Utils.Print("Generated EVM json genesis file in: %s" % gensisJson)
+    Utils.Print("Generated EVM json genesis file in: %s" % genesisJson)
     Utils.Print("")
     Utils.Print("You can now run:")
-    Utils.Print("  eos-evm-node --plugin=blockchain_plugin --ship-endpoint=127.0.0.1:8999 --genesis-json=%s --chain-data=/tmp/data --verbosity=5" % gensisJson)
+    Utils.Print("  eos-evm-node --plugin=blockchain_plugin --ship-endpoint=127.0.0.1:8999 --genesis-json=%s --chain-data=/tmp/data --verbosity=5" % genesisJson)
     Utils.Print("  eos-evm-rpc --eos-evm-node=127.0.0.1:8080 --http-port=0.0.0.0:8881 --chaindata=/tmp/data --api-spec=eth,debug,net,trace")
     Utils.Print("")
 
@@ -661,7 +661,7 @@ try:
     os.makedirs(dataDir)
     outFile = open(nodeStdOutDir, "w")
     errFile = open(nodeStdErrDir, "w")
-    cmd = f"{eosEvmBuildRoot}/src/eos-evm-node --plugin=blockchain_plugin --ship-endpoint=127.0.0.1:8999 --genesis-json={gensisJson} --verbosity=6 --nocolor=1 --chain-data={dataDir}"
+    cmd = f"{eosEvmBuildRoot}/src/eos-evm-node --plugin=blockchain_plugin --ship-endpoint=127.0.0.1:8999 --genesis-json={genesisJson} --verbosity=6 --nocolor=1 --chain-data={dataDir}"
     Utils.Print(f"Launching: {cmd}")
     evmNodePOpen=Utils.delayedCheckOutput(cmd, stdout=outFile, stderr=errFile)
 
