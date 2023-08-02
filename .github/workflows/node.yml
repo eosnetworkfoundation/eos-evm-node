@@ -146,23 +146,20 @@ jobs:
           name: build.tar.gz
           path: build.tar.gz
 
-  integration-test:
-    name: EOS EVM Integration Tests
-    needs: [d, build]
-    if: always() && needs.d.result == 'success' && needs.build.result == 'success'
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [ ubuntu22 ]
+  versions:
+    name: Determine Versions
     runs-on: ubuntu-latest
-    container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
-    env:
-      CC: gcc-11
-      CXX: g++-11
-      DCMAKE_BUILD_TYPE: 'Release'
-
+    outputs:
+      leap-dev-target: ${{steps.versions.outputs.leap-dev-target}}
+      leap-dev-prerelease: ${{steps.versions.outputs.leap-dev-prerelease}}
+      leap-target: ${{steps.versions.outputs.leap-target}}
+      leap-prerelease: ${{steps.versions.outputs.leap-prerelease}}
+      cdt-target: ${{steps.versions.outputs.cdt-target}}
+      cdt-prerelease: ${{steps.versions.outputs.cdt-prerelease}}
+      eos-evm-contract-target: ${{steps.versions.outputs.eos-evm-contract-target}}
+      eos-evm-contract-prerelease: ${{steps.versions.outputs.eos-evm-contract-prerelease}}
     steps:
-      - name: Setup leap-dev & cdt versions
+      - name: Setup versions from input or defaults
         id: versions
         env:
           GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
@@ -202,6 +199,22 @@ jobs:
             echo eos-evm-contract-prerelease=${{inputs.override-eos-evm-contract-prerelease}} >> $GITHUB_OUTPUT
           fi
 
+  integration-test:
+    name: EOS EVM Integration Tests
+    needs: [d, build, versions]
+    if: always() && needs.d.result == 'success' && needs.build.result == 'success' && needs.versions.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ ubuntu22 ]
+    runs-on: ubuntu-latest
+    container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
+    env:
+      CC: gcc-11
+      CXX: g++-11
+      DCMAKE_BUILD_TYPE: 'Release'
+
+    steps:
       - name: Update Package Index & Upgrade Packages
         run: |
           apt-get update
@@ -212,8 +225,8 @@ jobs:
         with:
           owner: AntelopeIO
           repo: cdt
-          target: '${{steps.versions.outputs.cdt-target}}'
-          prereleases: ${{fromJSON(steps.versions.outputs.cdt-prerelease)}}
+          target: '${{needs.versions.outputs.cdt-target}}'
+          prereleases: ${{fromJSON(needs.versions.outputs.cdt-prerelease)}}
           file: 'cdt_.*amd64.deb'
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -225,8 +238,8 @@ jobs:
         with:
           owner: AntelopeIO
           repo: leap
-          target: '${{steps.versions.outputs.leap-dev-target}}'
-          prereleases: ${{fromJSON(steps.versions.outputs.leap-dev-prerelease)}}
+          target: '${{needs.versions.outputs.leap-dev-target}}'
+          prereleases: ${{fromJSON(needs.versions.outputs.leap-dev-prerelease)}}
           file: 'leap-dev.*(x86_64|amd64).deb'
           container-package: experimental-binaries
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -236,8 +249,8 @@ jobs:
         with:
           owner: AntelopeIO
           repo: leap
-          target: '${{steps.versions.outputs.leap-target}}'
-          prereleases: ${{fromJSON(steps.versions.outputs.leap-prerelease)}}
+          target: '${{needs.versions.outputs.leap-target}}'
+          prereleases: ${{fromJSON(needs.versions.outputs.leap-prerelease)}}
           file: 'leap.*${{matrix.platform}}.*(x86_64|amd64).deb'
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -253,8 +266,8 @@ jobs:
         with:
           owner: eosnetworkfoundation
           repo: eos-evm
-          target: '${{steps.versions.outputs.eos-evm-contract-target}}'
-          prereleases: ${{fromJSON(steps.versions.outputs.eos-evm-contract-prerelease)}}
+          target: '${{needs.versions.outputs.eos-evm-contract-target}}'
+          prereleases: ${{fromJSON(needs.versions.outputs.eos-evm-contract-prerelease)}}
           file: 'contract.tar.gz'
           artifact-name: contract.test-actions-off.tar.gz
           token: ${{ secrets.GITHUB_TOKEN }}
