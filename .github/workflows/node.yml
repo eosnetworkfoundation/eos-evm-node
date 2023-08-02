@@ -169,10 +169,10 @@ jobs:
           echo leap-dev-prerelease=$(echo "$DEFAULTS_JSON" | jq -r '."leap-dev".prerelease') >> $GITHUB_OUTPUT
           echo leap-target=$(echo "$DEFAULTS_JSON" | jq -r '."leap".target') >> $GITHUB_OUTPUT
           echo leap-prerelease=$(echo "$DEFAULTS_JSON" | jq -r '."leap".prerelease') >> $GITHUB_OUTPUT
-          echo cdt-target=$(echo "$DEFAULTS_JSON" | jq -r '.cdt.target') >> $GITHUB_OUTPUT
-          echo cdt-prerelease=$(echo "$DEFAULTS_JSON" | jq -r '.cdt.prerelease') >> $GITHUB_OUTPUT
-          echo eos-evm-contract-target=$(echo "$DEFAULTS_JSON" | jq -r '.eos-evm-contract.target') >> $GITHUB_OUTPUT
-          echo eos-evm-contract-prerelease=$(echo "$DEFAULTS_JSON" | jq -r '.eos-evm-contract.prerelease') >> $GITHUB_OUTPUT
+          echo cdt-target=$(echo "$DEFAULTS_JSON" | jq -r '."cdt".target') >> $GITHUB_OUTPUT
+          echo cdt-prerelease=$(echo "$DEFAULTS_JSON" | jq -r '."cdt".prerelease') >> $GITHUB_OUTPUT
+          echo eos-evm-contract-target=$(echo "$DEFAULTS_JSON" | jq -r '."eos-evm-contract".target') >> $GITHUB_OUTPUT
+          echo eos-evm-contract-prerelease=$(echo "$DEFAULTS_JSON" | jq -r '."eos-evm-contract".prerelease') >> $GITHUB_OUTPUT
 
           if [[ "${{inputs.override-leap-dev}}" != "" ]]; then
             echo leap-dev-target=${{inputs.override-leap-dev}} >> $GITHUB_OUTPUT
