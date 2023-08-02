@@ -36,8 +36,8 @@ git submodule update --init --recursive
 ### compile eos-evm-node, eos-evm-rpc
 
 Prerequisites:
-- Ubuntu 20 or later or other compatible Linux
-- gcc 10 or later
+- Ubuntu 22 or later or other compatible Linux
+- gcc 11 or later
 
 Easy Steps:
 ```
