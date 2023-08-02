@@ -162,8 +162,6 @@ jobs:
       - name: Install Leap
         run: |
           apt-get install -y ./leap*.deb
-          dpkg -L leap-dev | grep TestHarness
-          dpkg -L leap | grep cleos
 
       - name: Link Leap TestHarness Module (fix for v4 of leap)
         run: ln -s /usr/share/leap_testing/tests/TestHarness /usr/lib/python3/dist-packages/TestHarness
@@ -181,16 +179,11 @@ jobs:
       - name: Extract EOS EVM Contract
         id: evm-contract
         run: |
-          pwd
-          ls
           mkdir contract
           mv contract.tar.gz contract/
           cd contract
-          pwd
-          ls
           tar xvf contract.tar.gz
           cd build
-          pwd
           echo "EVM_CONTRACT=$(pwd)" >> "$GITHUB_OUTPUT"
 
       - name: Authenticate
@@ -228,24 +221,10 @@ jobs:
           npm install dotenv
           npm install is-valid-hostname
 
-      - name: Check Depedency Versions
-        run: |
-          pip show web3
-          node --version
-
       - name: Test Leap Integration
         run: |
-          pwd
-          ls
           mkdir test_run_root
-          ls
           cd test_run_root
-          ls
-          pwd
-          echo "See if contract root still looks good."
-          ls ${{ steps.evm-contract.outputs.EVM_CONTRACT }}
-          echo "See if build root still looks good."
-          ls ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }}
           ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }}/tests/nodeos_eos_evm_test.py -v --eos-evm-contract-root ${{ steps.evm-contract.outputs.EVM_CONTRACT }} --eos-evm-build-root ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }} --use-tx-wrapper ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }}/peripherals/tx_wrapper
 
       - name: Prepare Logs

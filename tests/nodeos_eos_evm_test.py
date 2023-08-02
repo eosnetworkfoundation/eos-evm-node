@@ -59,7 +59,6 @@ from antelope_name import convert_name_to_value
 #  ~/eos-evm/tests/leap/nodeos_eos_evm_test.py --eos-evm-contract-root ~/eos-evm/contract/build --eos-evm-build-root ~/eos-evm/build --use-tx-wrapper ~/eos-evm/peripherals/tx_wrapper --leave-running
 #
 # Example (Running with leap dev-install):
-#  export PYTHONPATH=<leap-dev-install-root>/lib/python3/dist-packages
 #  ~/eos-evm/tests/leap/nodeos_eos_evm_test.py --eos-evm-contract-root ~/eos-evm/contract/build --eos-evm-build-root ~/eos-evm/build --use-tx-wrapper ~/eos-evm/peripherals/tx_wrapper --leave-running
 #
 #  Launches wallet at port: 9899
@@ -661,13 +660,11 @@ try:
     os.makedirs(dataDir)
     outFile = open(nodeStdOutDir, "w")
     errFile = open(nodeStdErrDir, "w")
-    cmd = f"{eosEvmBuildRoot}/src/eos-evm-node --plugin=blockchain_plugin --ship-endpoint=127.0.0.1:8999 --genesis-json={genesisJson} --verbosity=6 --nocolor=1 --chain-data={dataDir}"
+    cmd = f"{eosEvmBuildRoot}/src/eos-evm-node --plugin=blockchain_plugin --ship-endpoint=127.0.0.1:8999 --genesis-json={genesisJson} --verbosity=5 --nocolor=1 --chain-data={dataDir}"
     Utils.Print(f"Launching: {cmd}")
     evmNodePOpen=Utils.delayedCheckOutput(cmd, stdout=outFile, stderr=errFile)
 
-    Utils.Print(f"Allow time for evm node to start and sync trxs - start {time.ctime()}")
-    time.sleep(20) # allow time to sync trxs
-    Utils.Print(f"Allow time for evm node to start and sync trxs - finish {time.ctime()}")
+    time.sleep(10) # allow time to sync trxs
 
     # Launch eos-evm-rpc
     rpcStdOutDir = dataDir + "/eos-evm-rpc.stdout"
@@ -686,17 +683,8 @@ try:
         try:
             r = w3.eth.get_balance(Web3.to_checksum_address('0x'+row['eth_address']))
         except:
-            Utils.Print("Exception thrown - Checking 0x{0} balance".format(row['eth_address']))
-        if int(row['balance'],16) != 0:
-            max = 0
-            while r == 0 and max < 600:
-                time.sleep(1)
-                max+=1
-                Utils.Print("Re-Checking 0x{0} balance".format(row['eth_address']))
-                try:
-                    r = w3.eth.get_balance(Web3.to_checksum_address('0x'+row['eth_address']))
-                except:
-                    Utils.Print("Exception thrown - Re-Checking 0x{0} balance".format(row['eth_address']))
+            Utils.Print("ERROR - RPC endpoint not available - Exception thrown - Checking 0x{0} balance".format(row['eth_address']))
+            raise
         assert r == int(row['balance'],16), f"{row['eth_address']} {r} != {int(row['balance'],16)}"
 
     foundErr = False
