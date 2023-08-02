@@ -56,10 +56,11 @@ from antelope_name import convert_name_to_value
 #
 # Example (Running with leap src build):
 #  cd ~/leap/build
-#  ~/eos-evm/tests/leap/nodeos_eos_evm_test.py --eos-evm-contract-root ~/eos-evm/contract/build --eos-evm-build-root ~/eos-evm/build --use-tx-wrapper ~/eos-evm/peripherals/tx_wrapper --leave-running
+#  ~/eos-evm-node/build/tests/nodeos_eos_evm_test.py --eos-evm-contract-root ~/eos-evm/build --eos-evm-build-root ~/eos-evm-node/build --use-tx-wrapper ~/eos-evm-node/build/peripherals/tx_wrapper --leave-running
 #
 # Example (Running with leap dev-install):
-#  ~/eos-evm/tests/leap/nodeos_eos_evm_test.py --eos-evm-contract-root ~/eos-evm/contract/build --eos-evm-build-root ~/eos-evm/build --use-tx-wrapper ~/eos-evm/peripherals/tx_wrapper --leave-running
+#  ln -s /usr/share/leap_testing/tests/TestHarness /usr/lib/python3/dist-packages/TestHarness
+#  ~/eos-evm-node/build/tests/nodeos_eos_evm_test.py --eos-evm-contract-root ~/eos-evm/build --eos-evm-build-root ~/eos-evm-node/build --use-tx-wrapper ~/eos-evm-node/build/peripherals/tx_wrapper --leave-running
 #
 #  Launches wallet at port: 9899
 #    Example: bin/cleos --wallet-url http://127.0.0.1:9899 ...
