@@ -316,12 +316,9 @@ jobs:
           cp -r node-v18.17.0-linux-x64/{bin,include,lib,share}  /usr/
           node --version
           npm --version
-          npm install eosjs
-          npm install ethereumjs-util
-          npm install node-fetch
-          npm install http-jsonrpc-server
-          npm install dotenv
-          npm install is-valid-hostname
+          pushd ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }}/peripherals/tx_wrapper
+          npm install
+          popd
 
       - name: Test Leap Integration
         run: |
