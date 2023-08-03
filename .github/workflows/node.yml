@@ -309,7 +309,7 @@ jobs:
 
       - name: Install Test Depedencies
         run: |
-          apt install -y nvm
+          curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.4/install.sh | bash
           nvm use lts/hydrogen
           pip install --upgrade web3
           apt install -y nodejs
