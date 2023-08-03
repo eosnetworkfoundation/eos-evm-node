@@ -1,23 +1,21 @@
-const { Api, JsonRpc, RpcError } = import("eosjs");
-const { JsSignatureProvider } = import("eosjs/dist/eosjs-jssig"); // development only
-// const fetch = require("node-fetch"); // node only; not needed in browsers
+import { config } from 'dotenv';
+config()
+
+import { Api, JsonRpc, RpcError } from "eosjs";
+import { JsSignatureProvider } from "eosjs/dist/eosjs-jssig.js"; // development only
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-const { TextEncoder, TextDecoder } = import("util"); // node only; native TextEncoder/Decoder
+import { TextEncoder, TextDecoder } from "util"; // node only; native TextEncoder/Decoder
 
-const RpcServer = import("http-jsonrpc-server");
-const dotenv = import("dotenv");
-const isValidHostname = import('is-valid-hostname')
+import  RpcServer  from "http-jsonrpc-server";
+import isValidHostname from 'is-valid-hostname';
 
-const { keccak256 } = import('ethereumjs-util');
+import { keccak256 } from 'ethereumjs-util';
 
 // Local helpers
 function validateNum(input, min, max) {
   var num = +input;
   return num >= min && num <= max && input === num.toString();
 }
-
-// Read and Validate Configs
-dotenv.config();
 
 if (!process.env.EOS_KEY) {
   console.log("Missing EOS_KEY in .env file!");
@@ -55,7 +53,7 @@ if (!process.env.PORT || !validateNum(process.env.PORT, 1, 65535)) {
   process.exit();
 }
 
-expire_sec = 300;
+let expire_sec = 300;
 if (!process.env.EXPIRE_SEC) {
   console.log("Missing EXPIRE_SEC, default to " + expire_sec);
 } else {
@@ -63,15 +61,15 @@ if (!process.env.EXPIRE_SEC) {
 }
 
 // Setting up EOS
-rpc_list = process.env.EOS_RPC.split("|");
+let rpc_list = process.env.EOS_RPC.split("|");
 console.log("number of RPC endpoints = " + rpc_list.length + ", using " + rpc_list[0]);
-rpc_index = 0;
+let rpc_index = 0;
 
-rpc = new JsonRpc(rpc_list[rpc_index], { fetch });
+let rpc = new JsonRpc(rpc_list[rpc_index], { fetch });
 const defaultPrivateKey = process.env.EOS_KEY;
 const signatureProvider = new JsSignatureProvider([defaultPrivateKey]);
 
-api = new Api({
+let api = new Api({
   rpc,
   signatureProvider,
   textDecoder: new TextDecoder(),
@@ -121,7 +119,7 @@ async function push_tx(strRlptx) {
       expireSeconds: +expire_sec,
     }
   );
-  latency = Date.now() - t0;
+  const latency = Date.now() - t0;
   console.log("----response(" + id + ", " + latency + "ms) ----");
   console.log(result);
   return result;
