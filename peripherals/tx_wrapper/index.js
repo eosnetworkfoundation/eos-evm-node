@@ -1,14 +1,14 @@
-const { Api, JsonRpc, RpcError } = require("eosjs");
-const { JsSignatureProvider } = require("eosjs/dist/eosjs-jssig"); // development only
+const { Api, JsonRpc, RpcError } = import("eosjs");
+const { JsSignatureProvider } = import("eosjs/dist/eosjs-jssig"); // development only
 // const fetch = require("node-fetch"); // node only; not needed in browsers
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-const { TextEncoder, TextDecoder } = require("util"); // node only; native TextEncoder/Decoder
+const { TextEncoder, TextDecoder } = import("util"); // node only; native TextEncoder/Decoder
 
-const RpcServer = require("http-jsonrpc-server");
-const dotenv = require("dotenv");
-const isValidHostname = require('is-valid-hostname')
+const RpcServer = import("http-jsonrpc-server");
+const dotenv = import("dotenv");
+const isValidHostname = import('is-valid-hostname')
 
-const { keccak256 } = require('ethereumjs-util');
+const { keccak256 } = import('ethereumjs-util');
 
 // Local helpers
 function validateNum(input, min, max) {
