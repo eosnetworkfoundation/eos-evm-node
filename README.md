@@ -48,8 +48,8 @@ make -j8
 ```
 You'll get the list of binaries with other tools:
 ```
-src/eos-evm-node
-src/eos-evm-rpc
+bin/eos-evm-node
+bin/eos-evm-rpc
 ```
 
 Alternatively, to build with specific compiler:
