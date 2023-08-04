@@ -1,19 +1,19 @@
 import { config } from 'dotenv';
 config()
 
-import { Api, JsonRpc, RpcError } from "eosjs";
-import { JsSignatureProvider } from "eosjs/dist/eosjs-jssig.js"; // development only
+import { Api, JsonRpc } from 'eosjs';
+import { JsSignatureProvider } from 'eosjs/dist/eosjs-jssig.js'; // development only
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-import { TextEncoder, TextDecoder } from "util"; // node only; native TextEncoder/Decoder
+import { TextEncoder, TextDecoder } from 'util'; // node only; native TextEncoder/Decoder
 
-import  RpcServer  from "http-jsonrpc-server";
+import  RpcServer  from 'http-jsonrpc-server';
 import isValidHostname from 'is-valid-hostname';
 
 import { keccak256 } from 'ethereumjs-util';
 
 // Local helpers
 function validateNum(input, min, max) {
-  var num = +input;
+  const num = +input;
   return num >= min && num <= max && input === num.toString();
 }
 
@@ -89,13 +89,13 @@ function next_rpc_endpoint() {
 }
 
 // EOS Helpers
-var pushcount=0;
+let pushcount=0;
 async function push_tx(strRlptx) {
-  id=pushcount;
+  const id=pushcount;
   pushcount = pushcount + 1;
   console.log("----rlptx(" + id + ")-----");
   console.log(strRlptx);
-  t0 = Date.now();
+  const t0 = Date.now();
   const result = await api.transact(
     {
       actions: [
@@ -127,13 +127,14 @@ async function push_tx(strRlptx) {
 
 // RPC Handlers
 async function eth_sendRawTransaction(params) {
-  const rlptx = params[0].substr(2);
+  const rlptx = params[0].substring(2);
   await push_tx(rlptx);
   return '0x'+keccak256(Buffer.from(rlptx, "hex")).toString("hex");
 }
 
-var lastGetTableCallTime = 0
-var gasPrice = "0x1";
+let lastGetTableCallTime = 0;
+let gasPrice = "0x1";
+
 async function eth_gasPrice(params) {
   if ( (new Date() - lastGetTableCallTime) >= 1000 ) {
     try {
@@ -159,7 +160,7 @@ async function eth_gasPrice(params) {
 
 function zero_pad(hexstr) {
   if(!hexstr) return "";
-  const res = hexstr.substr(2);
+  const res = hexstr.substring(2);
   return res.length % 2 ? '0'+res : res;
 }
 
