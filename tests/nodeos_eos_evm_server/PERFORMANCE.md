@@ -50,7 +50,7 @@ ln -s ~/evmperf/eos-evm/tests/leap/nodeos_eos_evm_server.py nodeos_eos_evm_serve
 sed -i 's/SYS/EOS/g' core_symbol.py
 python3 -m venv venv
 source venv/bin/activate
-pip install 'web3<6' flask flask-cors
+pip install 'web3>=6' flask flask-cors
 ```
 
 
@@ -68,14 +68,14 @@ cd ..
 
 ### Launch eos-evm-node
 ```
-cd ~/evmperf/eos-evm/build/cmd
+cd ~/evmperf/eos-evm/build/bin
 rm -rf chaindata etl-temp config-dir
 ./eos-evm-node --plugin=blockchain_plugin --ship-endpoint=127.0.0.1:8999 --genesis-json=$HOME/evmperf/leap/build/eos-evm-genesis.json --verbosity=4
 ```
 
 ### Launch eos-evm-rpc
 ```
-cd ~/evmperf/eos-evm/build/cmd
+cd ~/evmperf/eos-evm/build/bin
 ./eos-evm-rpc --eos-evm-node=127.0.0.1:8080 --http-port=0.0.0.0:8881 --chaindata=./ --api-spec=eth,debug,net,trace --verbosity=4
 ```
 

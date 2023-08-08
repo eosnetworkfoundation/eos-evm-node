@@ -31,3 +31,6 @@ target_link_libraries(eos-evm-node PRIVATE appbase abieos sys_plugin engine_plug
 add_executable(eos-evm-rpc eos-evm-rpc.cpp)
 target_include_directories(eos-evm-rpc PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(eos-evm-rpc PRIVATE appbase abieos sys_plugin rpc_plugin boost_filesystem version)
+
+copy_bin( eos-evm-node )
+copy_bin( eos-evm-rpc )

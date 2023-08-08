@@ -1,5 +1,6 @@
 {
   "name": "evm_poc_tx_wrapper",
+  "type": "module",
   "version": "1.0.0",
   "main": "index.js",
   "repository": "https://github.com/yarkinwho/evm_poc_tx_wrapper",
