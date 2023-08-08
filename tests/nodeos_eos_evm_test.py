@@ -41,27 +41,17 @@ from antelope_name import convert_name_to_value
 # Need to install:
 #   web3      - pip install web3
 #
-# --use-tx-wrapper path_to_tx_wrapper
-#                  if specified then uses tx_wrapper to get gas price.
-#                  Requires tx_wrapper dependencies installed: nodejs, eosjs, ethereumjs-util
-#                               sudo apt install nodejs
-#                               sudo apt install npm
-#                               npm install eosjs
-#                               npm install ethereumjs-util
-#                               npm install node-fetch
-#                               npm install http-jsonrpc-server
-#                               npm install dotenv
-#                               npm install is-valid-hostname
+# --use-miner path to eos-evm-miner. if specified then uses eos-evm-miner to get gas price.
 # --eos-evm-build-root should point to the root of EOS EVM build dir
 # --eos-evm-contract-root should point to root of EOS EVM contract build dir
 #
 # Example (Running with leap src build):
 #  cd ~/leap/build
-#  ~/eos-evm-node/build/tests/nodeos_eos_evm_test.py --eos-evm-contract-root ~/eos-evm/build --eos-evm-build-root ~/eos-evm-node/build --use-tx-wrapper ~/eos-evm-node/build/peripherals/tx_wrapper --leave-running
+#  ~/eos-evm-node/build/tests/nodeos_eos_evm_test.py --eos-evm-contract-root ~/eos-evm/build --eos-evm-build-root ~/eos-evm-node/build --use-miner ~/eos-evm-miner --leave-running
 #
 # Example (Running with leap dev-install):
 #  ln -s /usr/share/leap_testing/tests/TestHarness /usr/lib/python3/dist-packages/TestHarness
-#  ~/eos-evm-node/build/tests/nodeos_eos_evm_test.py --eos-evm-contract-root ~/eos-evm/build --eos-evm-build-root ~/eos-evm-node/build --use-tx-wrapper ~/eos-evm-node/build/peripherals/tx_wrapper --leave-running
+#  ~/eos-evm-node/build/tests/nodeos_eos_evm_test.py --eos-evm-contract-root ~/eos-evm/build --eos-evm-build-root ~/eos-evm-node/build --use-miner ~/eos-evm-miner --leave-running
 #
 #  Launches wallet at port: 9899
 #    Example: bin/cleos --wallet-url http://127.0.0.1:9899 ...
