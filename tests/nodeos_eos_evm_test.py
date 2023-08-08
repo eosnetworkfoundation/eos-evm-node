@@ -3,10 +3,11 @@
 import random
 import os
 import json
-import time
-import sys
-import signal
 import shutil
+import signal
+import subprocess
+import sys
+import time
 import calendar
 from datetime import datetime
 from ctypes import c_uint8
@@ -74,7 +75,7 @@ appArgs=AppArgs()
 appArgs.add(flag="--eos-evm-contract-root", type=str, help="EOS EVM contract build dir", default=None)
 appArgs.add(flag="--eos-evm-build-root", type=str, help="EOS EVM build dir", default=None)
 appArgs.add(flag="--genesis-json", type=str, help="File to save generated genesis json", default="eos-evm-genesis.json")
-appArgs.add(flag="--use-tx-wrapper", type=str, help="tx_wrapper to use to send trx to nodeos", default=None)
+appArgs.add(flag="--use-miner", type=str, help="EOS EVM miner to use to send trx to nodeos", default=None)
 
 args=TestHelper.parse_args({"--keep-logs","--dump-error-details","-v","--leave-running","--clean-run" }, applicationSpecificArgs=appArgs)
 debug=args.v
@@ -85,7 +86,7 @@ killAll=args.clean_run
 eosEvmContractRoot=args.eos_evm_contract_root
 eosEvmBuildRoot=args.eos_evm_build_root
 genesisJson=args.genesis_json
-useTrxWrapper=args.use_tx_wrapper
+useMiner=args.use_miner
 
 assert eosEvmContractRoot is not None, "--eos-evm-contract-root is required"
 assert eosEvmBuildRoot is not None, "--eos-evm-build-root is required"
@@ -103,6 +104,7 @@ pnodes=1
 total_nodes=pnodes + 2
 evmNodePOpen = None
 evmRPCPOpen = None
+eosEvmMinerPOpen = None
 
 def interact_with_storage_contract(dest, nonce):
     for i in range(1, 5): # execute a few
@@ -130,19 +132,14 @@ def interact_with_storage_contract(dest, nonce):
 
     return nonce
 
-def writeTxWrapperEnv():
-    with open(".env", 'w') as envFile:
-        env = \
-f'''
-EOS_RPC="http://127.0.0.1:8888"
-EOS_KEY="{txWrapAcc.activePrivateKey}"
-HOST="127.0.0.1"
-PORT="18888"
-EOS_EVM_ACCOUNT="evmevmevmevm"
-EOS_SENDER="{txWrapAcc.name}"
-EOS_PERMISSION="active"
-'''
-        envFile.write(env)
+def setEosEvmMinerEnv():
+    os.environ["PRIVATE_KEY"]="5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
+    os.environ["MINER_ACCOUNT"]="evmtester"
+    os.environ["RPC_ENDPOINTS"]="http://127.0.0.1:8888|http://192.168.1.1:8888"
+    os.environ["PORT"]="50305"
+    os.environ["LOCK_GAS_PRICE"]="true"
+    os.environ["MINER_PERMISSION"]="active"
+    os.environ["EXPIRE_SEC"]="60"
 
 def processUrllibRequest(endpoint, payload={}, silentErrors=False, exitOnError=False, exitMsg=None, returnType=ReturnType.json):
     cmd = f"{endpoint}"
@@ -204,7 +201,7 @@ def processUrllibRequest(endpoint, payload={}, silentErrors=False, exitOnError=F
     return rtn
 
 def getGasPrice():
-    if useTrxWrapper is None:
+    if useMiner is None:
         return 1
     else:
         result = processUrllibRequest("http://127.0.0.1:18888", payload={"method":"eth_gasPrice","params":[],"id":1,"jsonrpc":"2.0"})
@@ -359,21 +356,21 @@ try:
     trans=prodNode.pushMessage(evmAcc.name, "open", '[{0}]'.format(minerAcc.name), '-p {0}'.format(minerAcc.name))
 
     #
-    # Setup tx_wrapper
+    # Setup eos-evm-minder
     #
-    txWrapPOpen = None
-    if useTrxWrapper is not None:
-        writeTxWrapperEnv()
-        dataDir = Utils.DataDir + "tx_wrap"
-        outDir = dataDir + "/tx_wrapper.stdout"
-        errDir = dataDir + "/tx_wrapper.stderr"
+    if useMiner is not None:
+        setEosEvmMinerEnv()
+        dataDir = Utils.DataDir + "eos-evm-miner"
+        outDir = dataDir + "/eos-evm-miner.stdout"
+        errDir = dataDir + "/eos-evm-miner.stderr"
         shutil.rmtree(dataDir, ignore_errors=True)
         os.makedirs(dataDir)
         outFile = open(outDir, "w")
         errFile = open(errDir, "w")
-        cmd = "node %s/index.js" % (useTrxWrapper)
+        cmd = "npm run mine"
         Utils.Print("Launching: %s" % cmd)
-        txWrapPOpen=Utils.delayedCheckOutput(cmd, stdout=outFile, stderr=errFile)
+        eosEvmMinerPOpen=subprocess.Popen(cmd, stdout=outFile, stderr=errFile, shell=True, cwd=useMiner)
+
 
     Utils.Print("Transfer initial balances")
 
@@ -712,8 +709,8 @@ finally:
             evmNodePOpen.kill()
         if evmRPCPOpen is not None:
             evmRPCPOpen.kill()
-        if txWrapPOpen is not None:
-            txWrapPOpen.kill()
+        if eosEvmMinerPOpen is not None:
+            eosEvmMinerPOpen.kill()
 
 exitCode = 0 if testSuccessful else 1
 exit(exitCode)
