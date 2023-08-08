@@ -306,14 +306,6 @@ jobs:
           path: eos-evm-miner
           ref: '${{needs.versions.outputs.eos-evm-miner-target}}'
 
-      - name: Build eos-evm-miner
-        id: eos-evm-miner-build
-        run: |
-          pushd eos-evm-miner
-          echo "EVM_MINER_ROOT=$(pwd)" >> "$GITHUB_OUTPUT"
-          npm install
-          popd
-
       - name: Download EOS EVM Node builddir
         uses: actions/download-artifact@v3
         with:
@@ -339,7 +331,12 @@ jobs:
           cp -r node-v18.17.0-linux-x64/{bin,include,lib,share}  /usr/
           node --version
           npm --version
-          pushd ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }}/peripherals/tx_wrapper
+
+      - name: Build eos-evm-miner
+        id: eos-evm-miner-build
+        run: |
+          pushd eos-evm-miner
+          echo "EVM_MINER_ROOT=$(pwd)" >> "$GITHUB_OUTPUT"
           npm install
           popd
 
