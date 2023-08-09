@@ -360,6 +360,7 @@ try:
         cmd = "npm run mine"
         Utils.Print("Launching: %s" % cmd)
         eosEvmMinerPOpen=subprocess.Popen(cmd, stdout=outFile, stderr=errFile, shell=True, cwd=useMiner)
+        time.sleep(10) # let miner start up
 
 
     Utils.Print("Transfer initial balances")
