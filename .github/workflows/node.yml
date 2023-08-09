@@ -338,7 +338,7 @@ jobs:
           pushd eos-evm-miner
           echo "EVM_MINER_ROOT=$(pwd)" >> "$GITHUB_OUTPUT"
           npm install
-          npm build
+          npm run build
           popd
 
       - name: Test Leap Integration
