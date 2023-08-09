@@ -4,6 +4,7 @@ import random
 import os
 import json
 import shutil
+import shlex
 import signal
 import subprocess
 import sys
@@ -123,13 +124,22 @@ def interact_with_storage_contract(dest, nonce):
     return nonce
 
 def setEosEvmMinerEnv():
-    os.environ["PRIVATE_KEY"]="5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
-    os.environ["MINER_ACCOUNT"]="evmtester"
-    os.environ["RPC_ENDPOINTS"]="http://127.0.0.1:8888|http://192.168.1.1:8888"
-    os.environ["PORT"]="50305"
+    os.environ["PRIVATE_KEY"]=f"{minerAcc.activePrivateKey}"
+    os.environ["MINER_ACCOUNT"]=f"{minerAcc.name}"
+    os.environ["RPC_ENDPOINTS"]="http://127.0.0.1:8888"
+    os.environ["PORT"]="18888"
     os.environ["LOCK_GAS_PRICE"]="true"
     os.environ["MINER_PERMISSION"]="active"
     os.environ["EXPIRE_SEC"]="60"
+
+    Utils.Print(f"Set up configuration of eos-evm-miner via environment variables.")
+    Utils.Print(f"PRIVATE_KEY: {os.environ.get('PRIVATE_KEY')}")
+    Utils.Print(f"MINER_ACCOUNT: {os.environ.get('MINER_ACCOUNT')}")
+    Utils.Print(f"RPC_ENDPOINTS: {os.environ.get('RPC_ENDPOINTS')}")
+    Utils.Print(f"PORT: {os.environ.get('PORT')}")
+    Utils.Print(f"LOCK_GAS_PRICE: {os.environ.get('LOCK_GAS_PRICE')}")
+    Utils.Print(f"MINER_PERMISSION: {os.environ.get('MINER_PERMISSION')}")
+    Utils.Print(f"EXPIRE_SEC: {os.environ.get('EXPIRE_SEC')}")
 
 def processUrllibRequest(endpoint, payload={}, silentErrors=False, exitOnError=False, exitMsg=None, returnType=ReturnType.json):
     cmd = f"{endpoint}"
@@ -265,10 +275,9 @@ try:
         Utils.errorExit("FAILURE - create keys")
 
     evmAcc = accounts[0]
-    evmAcc.name = "evmevmevmevm"
+    evmAcc.name = "eosio.evm"
     testAcc = accounts[1]
-    txWrapAcc = accounts[2]
-    minerAcc = txWrapAcc
+    minerAcc = accounts[2]
 
     testWalletName="test"
 
@@ -302,10 +311,10 @@ try:
     prodNode.publishContract(evmAcc, contractDir, wasmFile, abiFile, waitForTransBlock=True)
 
     # add eosio.code permission
-    cmd="set account permission evmevmevmevm active --add-code -p evmevmevmevm@active"
+    cmd="set account permission eosio.evm active --add-code -p eosio.evm@active"
     prodNode.processCleosCmd(cmd, cmd, silentErrors=True, returnType=ReturnType.raw)
 
-    trans = prodNode.pushMessage(evmAcc.name, "init", '{{"chainid":15555, "fee_params": {{"gas_price": "10000000000", "miner_cut": 100000, "ingress_bridge_fee": "0.0000 {0}"}}}}'.format(CORE_SYMBOL), '-p evmevmevmevm')
+    trans = prodNode.pushMessage(evmAcc.name, "init", '{{"chainid":15555, "fee_params": {{"gas_price": "10000000000", "miner_cut": 100000, "ingress_bridge_fee": "0.0000 {0}"}}}}'.format(CORE_SYMBOL), '-p eosio.evm')
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
     transId=prodNode.getTransId(trans[1])
     blockNum = prodNode.getBlockNumByTransId(transId)
@@ -346,7 +355,7 @@ try:
     trans=prodNode.pushMessage(evmAcc.name, "open", '[{0}]'.format(minerAcc.name), '-p {0}'.format(minerAcc.name))
 
     #
-    # Setup eos-evm-minder
+    # Setup eos-evm-miner
     #
     if useMiner is not None:
         setEosEvmMinerEnv()
@@ -357,11 +366,11 @@ try:
         os.makedirs(dataDir)
         outFile = open(outDir, "w")
         errFile = open(errDir, "w")
-        cmd = "npm run mine"
+        cmd = "node dist/index.js"
         Utils.Print("Launching: %s" % cmd)
-        eosEvmMinerPOpen=subprocess.Popen(cmd, stdout=outFile, stderr=errFile, shell=True, cwd=useMiner)
+        cmdArr=shlex.split(cmd)
+        eosEvmMinerPOpen=subprocess.Popen(cmdArr, stdout=outFile, stderr=errFile, cwd=useMiner)
         time.sleep(10) # let miner start up
-
 
     Utils.Print("Transfer initial balances")
 
@@ -483,7 +492,7 @@ try:
     Utils.Print("Generated EVM json genesis file in: %s" % genesisJson)
     Utils.Print("")
     Utils.Print("You can now run:")
-    Utils.Print("  eos-evm-node --plugin=blockchain_plugin --ship-endpoint=127.0.0.1:8999 --genesis-json=%s --chain-data=/tmp/data --verbosity=5" % genesisJson)
+    Utils.Print("  eos-evm-node --plugin=blockchain_plugin --ship-core-account=eosio.evm --ship-endpoint=127.0.0.1:8999 --genesis-json=%s --chain-data=/tmp/data --verbosity=5" % genesisJson)
     Utils.Print("  eos-evm-rpc --eos-evm-node=127.0.0.1:8080 --http-port=0.0.0.0:8881 --chaindata=/tmp/data --api-spec=eth,debug,net,trace")
     Utils.Print("")
 
@@ -650,9 +659,10 @@ try:
     os.makedirs(dataDir)
     outFile = open(nodeStdOutDir, "w")
     errFile = open(nodeStdErrDir, "w")
-    cmd = f"{eosEvmBuildRoot}/bin/eos-evm-node --plugin=blockchain_plugin --ship-endpoint=127.0.0.1:8999 --genesis-json={genesisJson} --verbosity=5 --nocolor=1 --chain-data={dataDir}"
+    cmd = f"{eosEvmBuildRoot}/bin/eos-evm-node --plugin=blockchain_plugin --ship-core-account=eosio.evm --ship-endpoint=127.0.0.1:8999 --genesis-json={genesisJson} --verbosity=5 --nocolor=1 --chain-data={dataDir}"
     Utils.Print(f"Launching: {cmd}")
-    evmNodePOpen=Utils.delayedCheckOutput(cmd, stdout=outFile, stderr=errFile)
+    cmdArr=shlex.split(cmd)
+    evmNodePOpen=Utils.delayedCheckOutput(cmdArr, stdout=outFile, stderr=errFile)
 
     time.sleep(10) # allow time to sync trxs
 
@@ -663,13 +673,14 @@ try:
     errFile = open(rpcStdErrDir, "w")
     cmd = f"{eosEvmBuildRoot}/bin/eos-evm-rpc --eos-evm-node=127.0.0.1:8080 --http-port=0.0.0.0:8881 --chaindata={dataDir} --api-spec=eth,debug,net,trace"
     Utils.Print(f"Launching: {cmd}")
-    evmRPCPOpen=Utils.delayedCheckOutput(cmd, stdout=outFile, stderr=errFile)
+    cmdArr=shlex.split(cmd)
+    evmRPCPOpen=Utils.delayedCheckOutput(cmdArr, stdout=outFile, stderr=errFile)
 
     # Validate all balances are the same on both sides
     rows=prodNode.getTable(evmAcc.name, evmAcc.name, "account")
     for row in rows['rows']:
         Utils.Print("Checking 0x{0} balance".format(row['eth_address']))
-        r = 0
+        r = -1
         try:
             r = w3.eth.get_balance(Web3.to_checksum_address('0x'+row['eth_address']))
         except:
