@@ -3,10 +3,12 @@
 import random
 import os
 import json
-import time
-import sys
-import signal
 import shutil
+import shlex
+import signal
+import subprocess
+import sys
+import time
 import calendar
 from datetime import datetime
 from ctypes import c_uint8
@@ -40,27 +42,17 @@ from antelope_name import convert_name_to_value
 # Need to install:
 #   web3      - pip install web3
 #
-# --use-tx-wrapper path_to_tx_wrapper
-#                  if specified then uses tx_wrapper to get gas price.
-#                  Requires tx_wrapper dependencies installed: nodejs, eosjs, ethereumjs-util
-#                               sudo apt install nodejs
-#                               sudo apt install npm
-#                               npm install eosjs
-#                               npm install ethereumjs-util
-#                               npm install node-fetch
-#                               npm install http-jsonrpc-server
-#                               npm install dotenv
-#                               npm install is-valid-hostname
+# --use-miner path to eos-evm-miner. if specified then uses eos-evm-miner to get gas price.
 # --eos-evm-build-root should point to the root of EOS EVM build dir
 # --eos-evm-contract-root should point to root of EOS EVM contract build dir
 #
 # Example (Running with leap src build):
 #  cd ~/leap/build
-#  ~/eos-evm-node/build/tests/nodeos_eos_evm_test.py --eos-evm-contract-root ~/eos-evm/build --eos-evm-build-root ~/eos-evm-node/build --use-tx-wrapper ~/eos-evm-node/build/peripherals/tx_wrapper --leave-running
+#  ~/eos-evm-node/build/tests/nodeos_eos_evm_test.py --eos-evm-contract-root ~/eos-evm/build --eos-evm-build-root ~/eos-evm-node/build --use-miner ~/eos-evm-miner --leave-running
 #
 # Example (Running with leap dev-install):
 #  ln -s /usr/share/leap_testing/tests/TestHarness /usr/lib/python3/dist-packages/TestHarness
-#  ~/eos-evm-node/build/tests/nodeos_eos_evm_test.py --eos-evm-contract-root ~/eos-evm/build --eos-evm-build-root ~/eos-evm-node/build --use-tx-wrapper ~/eos-evm-node/build/peripherals/tx_wrapper --leave-running
+#  ~/eos-evm-node/build/tests/nodeos_eos_evm_test.py --eos-evm-contract-root ~/eos-evm/build --eos-evm-build-root ~/eos-evm-node/build --use-miner ~/eos-evm-miner --leave-running
 #
 #  Launches wallet at port: 9899
 #    Example: bin/cleos --wallet-url http://127.0.0.1:9899 ...
@@ -74,7 +66,7 @@ appArgs=AppArgs()
 appArgs.add(flag="--eos-evm-contract-root", type=str, help="EOS EVM contract build dir", default=None)
 appArgs.add(flag="--eos-evm-build-root", type=str, help="EOS EVM build dir", default=None)
 appArgs.add(flag="--genesis-json", type=str, help="File to save generated genesis json", default="eos-evm-genesis.json")
-appArgs.add(flag="--use-tx-wrapper", type=str, help="tx_wrapper to use to send trx to nodeos", default=None)
+appArgs.add(flag="--use-miner", type=str, help="EOS EVM miner to use to send trx to nodeos", default=None)
 
 args=TestHelper.parse_args({"--keep-logs","--dump-error-details","-v","--leave-running","--clean-run" }, applicationSpecificArgs=appArgs)
 debug=args.v
@@ -85,7 +77,7 @@ killAll=args.clean_run
 eosEvmContractRoot=args.eos_evm_contract_root
 eosEvmBuildRoot=args.eos_evm_build_root
 genesisJson=args.genesis_json
-useTrxWrapper=args.use_tx_wrapper
+useMiner=args.use_miner
 
 assert eosEvmContractRoot is not None, "--eos-evm-contract-root is required"
 assert eosEvmBuildRoot is not None, "--eos-evm-build-root is required"
@@ -103,6 +95,7 @@ pnodes=1
 total_nodes=pnodes + 2
 evmNodePOpen = None
 evmRPCPOpen = None
+eosEvmMinerPOpen = None
 
 def interact_with_storage_contract(dest, nonce):
     for i in range(1, 5): # execute a few
@@ -130,19 +123,23 @@ def interact_with_storage_contract(dest, nonce):
 
     return nonce
 
-def writeTxWrapperEnv():
-    with open(".env", 'w') as envFile:
-        env = \
-f'''
-EOS_RPC="http://127.0.0.1:8888"
-EOS_KEY="{txWrapAcc.activePrivateKey}"
-HOST="127.0.0.1"
-PORT="18888"
-EOS_EVM_ACCOUNT="evmevmevmevm"
-EOS_SENDER="{txWrapAcc.name}"
-EOS_PERMISSION="active"
-'''
-        envFile.write(env)
+def setEosEvmMinerEnv():
+    os.environ["PRIVATE_KEY"]=f"{minerAcc.activePrivateKey}"
+    os.environ["MINER_ACCOUNT"]=f"{minerAcc.name}"
+    os.environ["RPC_ENDPOINTS"]="http://127.0.0.1:8888"
+    os.environ["PORT"]="18888"
+    os.environ["LOCK_GAS_PRICE"]="true"
+    os.environ["MINER_PERMISSION"]="active"
+    os.environ["EXPIRE_SEC"]="60"
+
+    Utils.Print(f"Set up configuration of eos-evm-miner via environment variables.")
+    Utils.Print(f"PRIVATE_KEY: {os.environ.get('PRIVATE_KEY')}")
+    Utils.Print(f"MINER_ACCOUNT: {os.environ.get('MINER_ACCOUNT')}")
+    Utils.Print(f"RPC_ENDPOINTS: {os.environ.get('RPC_ENDPOINTS')}")
+    Utils.Print(f"PORT: {os.environ.get('PORT')}")
+    Utils.Print(f"LOCK_GAS_PRICE: {os.environ.get('LOCK_GAS_PRICE')}")
+    Utils.Print(f"MINER_PERMISSION: {os.environ.get('MINER_PERMISSION')}")
+    Utils.Print(f"EXPIRE_SEC: {os.environ.get('EXPIRE_SEC')}")
 
 def processUrllibRequest(endpoint, payload={}, silentErrors=False, exitOnError=False, exitMsg=None, returnType=ReturnType.json):
     cmd = f"{endpoint}"
@@ -204,7 +201,7 @@ def processUrllibRequest(endpoint, payload={}, silentErrors=False, exitOnError=F
     return rtn
 
 def getGasPrice():
-    if useTrxWrapper is None:
+    if useMiner is None:
         return 1
     else:
         result = processUrllibRequest("http://127.0.0.1:18888", payload={"method":"eth_gasPrice","params":[],"id":1,"jsonrpc":"2.0"})
@@ -278,10 +275,9 @@ try:
         Utils.errorExit("FAILURE - create keys")
 
     evmAcc = accounts[0]
-    evmAcc.name = "evmevmevmevm"
+    evmAcc.name = "eosio.evm"
     testAcc = accounts[1]
-    txWrapAcc = accounts[2]
-    minerAcc = txWrapAcc
+    minerAcc = accounts[2]
 
     testWalletName="test"
 
@@ -315,10 +311,10 @@ try:
     prodNode.publishContract(evmAcc, contractDir, wasmFile, abiFile, waitForTransBlock=True)
 
     # add eosio.code permission
-    cmd="set account permission evmevmevmevm active --add-code -p evmevmevmevm@active"
+    cmd="set account permission eosio.evm active --add-code -p eosio.evm@active"
     prodNode.processCleosCmd(cmd, cmd, silentErrors=True, returnType=ReturnType.raw)
 
-    trans = prodNode.pushMessage(evmAcc.name, "init", '{{"chainid":15555, "fee_params": {{"gas_price": "10000000000", "miner_cut": 100000, "ingress_bridge_fee": "0.0000 {0}"}}}}'.format(CORE_SYMBOL), '-p evmevmevmevm')
+    trans = prodNode.pushMessage(evmAcc.name, "init", '{{"chainid":15555, "fee_params": {{"gas_price": "10000000000", "miner_cut": 100000, "ingress_bridge_fee": "0.0000 {0}"}}}}'.format(CORE_SYMBOL), '-p eosio.evm')
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
     transId=prodNode.getTransId(trans[1])
     blockNum = prodNode.getBlockNumByTransId(transId)
@@ -359,21 +355,22 @@ try:
     trans=prodNode.pushMessage(evmAcc.name, "open", '[{0}]'.format(minerAcc.name), '-p {0}'.format(minerAcc.name))
 
     #
-    # Setup tx_wrapper
+    # Setup eos-evm-miner
     #
-    txWrapPOpen = None
-    if useTrxWrapper is not None:
-        writeTxWrapperEnv()
-        dataDir = Utils.DataDir + "tx_wrap"
-        outDir = dataDir + "/tx_wrapper.stdout"
-        errDir = dataDir + "/tx_wrapper.stderr"
+    if useMiner is not None:
+        setEosEvmMinerEnv()
+        dataDir = Utils.DataDir + "eos-evm-miner"
+        outDir = dataDir + "/eos-evm-miner.stdout"
+        errDir = dataDir + "/eos-evm-miner.stderr"
         shutil.rmtree(dataDir, ignore_errors=True)
         os.makedirs(dataDir)
         outFile = open(outDir, "w")
         errFile = open(errDir, "w")
-        cmd = "node %s/index.js" % (useTrxWrapper)
+        cmd = "node dist/index.js"
         Utils.Print("Launching: %s" % cmd)
-        txWrapPOpen=Utils.delayedCheckOutput(cmd, stdout=outFile, stderr=errFile)
+        cmdArr=shlex.split(cmd)
+        eosEvmMinerPOpen=subprocess.Popen(cmdArr, stdout=outFile, stderr=errFile, cwd=useMiner)
+        time.sleep(10) # let miner start up
 
     Utils.Print("Transfer initial balances")
 
@@ -495,7 +492,7 @@ try:
     Utils.Print("Generated EVM json genesis file in: %s" % genesisJson)
     Utils.Print("")
     Utils.Print("You can now run:")
-    Utils.Print("  eos-evm-node --plugin=blockchain_plugin --ship-endpoint=127.0.0.1:8999 --genesis-json=%s --chain-data=/tmp/data --verbosity=5" % genesisJson)
+    Utils.Print("  eos-evm-node --plugin=blockchain_plugin --ship-core-account=eosio.evm --ship-endpoint=127.0.0.1:8999 --genesis-json=%s --chain-data=/tmp/data --verbosity=5" % genesisJson)
     Utils.Print("  eos-evm-rpc --eos-evm-node=127.0.0.1:8080 --http-port=0.0.0.0:8881 --chaindata=/tmp/data --api-spec=eth,debug,net,trace")
     Utils.Print("")
 
@@ -662,9 +659,10 @@ try:
     os.makedirs(dataDir)
     outFile = open(nodeStdOutDir, "w")
     errFile = open(nodeStdErrDir, "w")
-    cmd = f"{eosEvmBuildRoot}/bin/eos-evm-node --plugin=blockchain_plugin --ship-endpoint=127.0.0.1:8999 --genesis-json={genesisJson} --verbosity=5 --nocolor=1 --chain-data={dataDir}"
+    cmd = f"{eosEvmBuildRoot}/bin/eos-evm-node --plugin=blockchain_plugin --ship-core-account=eosio.evm --ship-endpoint=127.0.0.1:8999 --genesis-json={genesisJson} --verbosity=5 --nocolor=1 --chain-data={dataDir}"
     Utils.Print(f"Launching: {cmd}")
-    evmNodePOpen=Utils.delayedCheckOutput(cmd, stdout=outFile, stderr=errFile)
+    cmdArr=shlex.split(cmd)
+    evmNodePOpen=Utils.delayedCheckOutput(cmdArr, stdout=outFile, stderr=errFile)
 
     time.sleep(10) # allow time to sync trxs
 
@@ -675,13 +673,14 @@ try:
     errFile = open(rpcStdErrDir, "w")
     cmd = f"{eosEvmBuildRoot}/bin/eos-evm-rpc --eos-evm-node=127.0.0.1:8080 --http-port=0.0.0.0:8881 --chaindata={dataDir} --api-spec=eth,debug,net,trace"
     Utils.Print(f"Launching: {cmd}")
-    evmRPCPOpen=Utils.delayedCheckOutput(cmd, stdout=outFile, stderr=errFile)
+    cmdArr=shlex.split(cmd)
+    evmRPCPOpen=Utils.delayedCheckOutput(cmdArr, stdout=outFile, stderr=errFile)
 
     # Validate all balances are the same on both sides
     rows=prodNode.getTable(evmAcc.name, evmAcc.name, "account")
     for row in rows['rows']:
         Utils.Print("Checking 0x{0} balance".format(row['eth_address']))
-        r = 0
+        r = -1
         try:
             r = w3.eth.get_balance(Web3.to_checksum_address('0x'+row['eth_address']))
         except:
@@ -712,8 +711,8 @@ finally:
             evmNodePOpen.kill()
         if evmRPCPOpen is not None:
             evmRPCPOpen.kill()
-        if txWrapPOpen is not None:
-            txWrapPOpen.kill()
+        if eosEvmMinerPOpen is not None:
+            eosEvmMinerPOpen.kill()
 
 exitCode = 0 if testSuccessful else 1
 exit(exitCode)

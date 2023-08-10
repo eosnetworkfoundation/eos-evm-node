@@ -10,7 +10,7 @@ Clients can also push Ethereum compatible transactions (aka EVM transactions) to
 ```
          |                                                 
          |                     WRITE              +-----------------+
-         |             +------------------------->|    TX-Wrapper   |
+         |             +------------------------->|  EOS EVM MINER  |
          |             |                          +-------v---------+
          |             |                          |    Leap node    | ---> connect to the other nodes in the blockchain network
  client  |             |                          +-------+---------+

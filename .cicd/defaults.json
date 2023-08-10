@@ -14,5 +14,8 @@
    "eos-evm-contract":{
       "target":"main",
       "prerelease":false
+   },
+   "eos-evm-miner":{
+      "target":"main"
    }
 }
