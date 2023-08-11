@@ -205,7 +205,7 @@ def processUrllibRequest(endpoint, payload={}, silentErrors=False, exitOnError=F
 
 def getGasPrice():
     if useTrxWrapper is None:
-        return 1
+        return 10000000000
     else:
         result = processUrllibRequest("http://127.0.0.1:18888", payload={"method":"eth_gasPrice","params":[],"id":1,"jsonrpc":"2.0"})
         Utils.Print("result: ", result)
@@ -273,7 +273,7 @@ try:
     prodNode = cluster.getNode(0)
     nonProdNode = cluster.getNode(1)
 
-    accounts=cluster.createAccountKeys(3)
+    accounts=cluster.createAccountKeys(5)
     if accounts is None:
         Utils.errorExit("FAILURE - create keys")
 
@@ -281,12 +281,14 @@ try:
     evmAcc.name = "evmevmevmevm"
     testAcc = accounts[1]
     txWrapAcc = accounts[2]
+    defertestAcc = accounts[3]
+    defertest2Acc = accounts[4]
     minerAcc = txWrapAcc
 
     testWalletName="test"
 
     Print("Creating wallet \"%s\"." % (testWalletName))
-    testWallet=walletMgr.create(testWalletName, [cluster.eosioAccount,accounts[0],accounts[1],accounts[2]])
+    testWallet=walletMgr.create(testWalletName, [cluster.eosioAccount,accounts[0],accounts[1],accounts[2],accounts[3],accounts[4]])
 
     addys = {
         "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266":"0x038318535b54105d4a7aae60c08fc45f9687181b4fdfc625bd1a753fa7397fed75,0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
@@ -311,11 +313,33 @@ try:
     contractDir=eosEvmContractRoot + "/evm_runtime"
     wasmFile="evm_runtime.wasm"
     abiFile="evm_runtime.abi"
-    Utils.Print("Publish evm_runtime contract")
+    Utils.Print(f"Publish evm_runtime contract {contractDir}/{wasmFile} to account {evmAcc}")
     prodNode.publishContract(evmAcc, contractDir, wasmFile, abiFile, waitForTransBlock=True)
 
     # add eosio.code permission
     cmd="set account permission evmevmevmevm active --add-code -p evmevmevmevm@active"
+    prodNode.processCleosCmd(cmd, cmd, silentErrors=True, returnType=ReturnType.raw)
+
+    # set defertest contract
+    contractDir=eosEvmBuildRoot + "/tests"
+    wasmFile="defertest.wasm"
+    abiFile="defertest.abi"
+    Utils.Print(f"Publish defertest contract {contractDir}/{wasmFile} to account {defertestAcc}")
+    prodNode.publishContract(defertestAcc, contractDir, wasmFile, abiFile, waitForTransBlock=True)
+
+    # add eosio.code permission to defertest account
+    cmd="set account permission " + defertestAcc.name + " active --add-code -p " + defertestAcc.name + "@active"
+    prodNode.processCleosCmd(cmd, cmd, silentErrors=True, returnType=ReturnType.raw)
+
+    # set defertest2 contract
+    contractDir=eosEvmBuildRoot + "/tests"
+    wasmFile="defertest2.wasm"
+    abiFile="defertest2.abi"
+    Utils.Print(f"Publish defertest2 contract {contractDir}/{wasmFile} to account {defertest2Acc}")
+    prodNode.publishContract(defertest2Acc, contractDir, wasmFile, abiFile, waitForTransBlock=True)
+
+    # add eosio.code permission to defertest2 account
+    cmd="set account permission " + defertest2Acc.name + " active --add-code -p " + defertest2Acc.name + "@active"
     prodNode.processCleosCmd(cmd, cmd, silentErrors=True, returnType=ReturnType.raw)
 
     trans = prodNode.pushMessage(evmAcc.name, "init", '{{"chainid":15555, "fee_params": {{"gas_price": "10000000000", "miner_cut": 100000, "ingress_bridge_fee": "0.0000 {0}"}}}}'.format(CORE_SYMBOL), '-p evmevmevmevm')
@@ -642,6 +666,7 @@ try:
     Utils.Print("\taccount row4: ", row4)
     assert(row4["eth_address"] == "9e126c57330fa71556628e0aabd6b6b6783d99fa")
     assert(row4["balance"] == "000000000000000000000000000000000000000000000001887f8db687170000") # 0x1887f8db687170000 => 28282480000000000000 (42.4242 - 0.0100 - 13.1313 - 1.0000 - 2 * 21000 * 10^10)
+    assert(row4["nonce"] == 2)
     expectedAmount="60000135.8250 {0}".format(CORE_SYMBOL)
     evmAccActualAmount=prodNode.getAccountEosBalanceStr(evmAcc.name)
     Utils.Print("\tEVM  Account balance %s" % evmAccActualAmount)
@@ -652,6 +677,138 @@ try:
     Utils.Print("\tTest Account balance %s" % testAccActualAmount)
     if testAccActualAmount != expectedAmount:
         Utils.errorExit("Transfer verification failed. Excepted %s, actual: %s" % (expectedAmount, testAccActualAmount))
+
+    # test hard-failed transaction (with --delay-sec)
+    amount=7.0000
+    transferAmount="7.000 {0}".format(CORE_SYMBOL)
+    Print("Test hard-failed EVM transaction (with delay)")
+    signed_trx = w3.eth.account.sign_transaction(dict(
+        nonce=nonce + 1000, # Wrong nonce -> should hard fails
+        gas=100000,       #100k Gas
+        gasPrice=gasP,
+        to=Web3.to_checksum_address(toAdd),
+        value=int(amount*10000*szabo*100),
+        data=b'',
+        chainId=evmChainId
+    ), evmSendKey)
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    cmd="push action " + evmAcc.name + " pushtx \"" + json.dumps(actData).replace("\"","\\\"") + "\" --delay-sec 2 -p " + minerAcc.name
+    trans=prodNode.processCleosCmd(cmd, cmd, silentErrors=True, returnType=ReturnType.raw)
+    Utils.Print(f"trans is {trans}");
+    time.sleep(4) # sleep enough time to get hard fails.
+    row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
+    Utils.Print("\taccount row4: ", row4)
+    assert(row4["eth_address"] == "9e126c57330fa71556628e0aabd6b6b6783d99fa")
+    assert(row4["balance"] == "000000000000000000000000000000000000000000000001887f8db687170000") #
+    assert(row4["nonce"] == 2)
+
+
+    # test hard-failed transaction (with defer)
+    amount=9.0000
+    transferAmount="9.000 {0}".format(CORE_SYMBOL)
+    Print("Test hard-failed EVM transaction (with defer)")
+    signed_trx = w3.eth.account.sign_transaction(dict(
+        nonce=nonce + 1000, # Wrong nonce -> should hard fails
+        gas=100000,       #100k Gas
+        gasPrice=gasP,
+        to=Web3.to_checksum_address(toAdd),
+        value=int(amount*10000*szabo*100),
+        data=b'',
+        chainId=evmChainId
+    ), evmSendKey)
+    actData = {"id":1,"account":evmAcc.name,"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:], "rlptx2":""}
+    trans = prodNode.pushMessage(defertestAcc.name, "pushdefer", json.dumps(actData), '-p {0}'.format(defertestAcc.name), silentErrors=False)
+    prodNode.waitForTransBlockIfNeeded(trans[1], True)
+    Utils.Print(f"trans is {trans}");
+    time.sleep(4) # sleep enough time to get hard fails.
+    row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
+    Utils.Print("\taccount row4: ", row4)
+    assert(row4["eth_address"] == "9e126c57330fa71556628e0aabd6b6b6783d99fa")
+    assert(row4["balance"] == "000000000000000000000000000000000000000000000001887f8db687170000") #
+    assert(row4["nonce"] == 2) # nothing should execute
+
+
+    # test soft-failed transaction (with defer)
+    amount=11.0000
+    transferAmount="11.000 {0}".format(CORE_SYMBOL)
+    Print("Test soft-failed EVM transaction (with defer)")
+    signed_trx = w3.eth.account.sign_transaction(dict(
+        nonce=nonce + 1000, # Wrong nonce -> should hard fails
+        gas=100000,       #100k Gas
+        gasPrice=gasP,
+        to=Web3.to_checksum_address(toAdd),
+        value=int(amount*10000*szabo*100),
+        data=b'',
+        chainId=evmChainId
+    ), evmSendKey)
+    amount=13.0000
+    transferAmount="13.000 {0}".format(CORE_SYMBOL)
+    nonce = nonce + 1
+    signed_trx2 = w3.eth.account.sign_transaction(dict(
+        nonce=nonce, # right nonce
+        gas=100000,       #100k Gas
+        gasPrice=gasP,
+        to=Web3.to_checksum_address(toAdd),
+        value=int(amount*10000*szabo*100),
+        data=b'',
+        chainId=evmChainId
+    ), evmSendKey)
+    actData = {"id":2,"account":evmAcc.name,"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:], "rlptx2":Web3.to_hex(signed_trx2.rawTransaction)[2:]}
+    trans = prodNode.pushMessage(defertestAcc.name, "pushdefer", json.dumps(actData), '-p {0}'.format(defertestAcc.name), silentErrors=False)
+    prodNode.waitForTransBlockIfNeeded(trans[1], True)
+    Utils.Print(f"trans is {trans}");
+    time.sleep(4) # sleep enough time to get soft fails.
+    row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
+    Utils.Print("\taccount row4: ", row4)
+    assert(row4["eth_address"] == "9e126c57330fa71556628e0aabd6b6b6783d99fa")
+    assert(row4["nonce"] == 3) # rlptx2 is executed by onerror handler
+    assert(row4["balance"] == "000000000000000000000000000000000000000000000000d4158798979be000")
+
+
+    # test action trace execution order which is different than creation order
+    #   defertest2::notifytest(defertest, evmevmevmevm, miner, rlptx, rlptx2) 
+    #      -> 1. create inline action (a) defertest::pushtxinline(evmevmevmevm, miner, rlptx1)
+    #      -> 2. require_recipient(defertest)
+    #      -> 3. on_notify of defertest::notifytest, create inline action (b) evmevmevmevm::pushtx(miner, rlptx2)
+    #      -> 4. inline action (a) executes: create inline action (c) evmevmevmevm::pushtx(rlptx1) 
+    #      -> 5. action (c) executes: evmevmevmevm::pushtx(rlptx1)
+    #      -> 6. action (b) executes: evmevmevmevm::pushtx(rlptx2)
+    # in the above case, evmevmevmevm::pushtx(miner, rlptx2) will be created before evmevmevmevm::pushtx(rlptx1),
+    # but evmevmevmevm::pushtx(rlptx1) will be executed before evmevmevmevm::pushtx(miner, rlptx2)
+    amount=2.0000
+    transferAmount="2.000 {0}".format(CORE_SYMBOL)
+    Utils.Print("Test action ordering: action1: transfer EVM->EOS funds %s from account %s to %s via inline action" % (transferAmount, evmAcc.name, testAcc.name))
+    nonce = nonce + 1
+    gasP = getGasPrice()
+    signed_trx = w3.eth.account.sign_transaction(dict(
+        nonce=nonce,
+        gas=100000,       #100k Gas
+        gasPrice=gasP,
+        to=Web3.to_checksum_address(toAdd),
+        value=int(amount*10000*szabo*100),
+        data=b'',
+        chainId=evmChainId
+    ), evmSendKey)
+    amount=4.0000
+    transferAmount="4.000 {0}".format(CORE_SYMBOL)
+    Utils.Print("Test action ordering: action 2: transfer EVM->EOS funds %s from account %s to %s via inline action" % (transferAmount, evmAcc.name, testAcc.name))
+    nonce = nonce + 1
+    gasP = getGasPrice()
+    signed_trx2 = w3.eth.account.sign_transaction(dict(
+        nonce=nonce,
+        gas=100000,       #100k Gas
+        gasPrice=gasP,
+        to=Web3.to_checksum_address(toAdd),
+        value=int(amount*10000*szabo*100),
+        data=b'',
+        chainId=evmChainId
+    ), evmSendKey)
+    actData = {"recipient":defertestAcc.name, "account":evmAcc.name, "miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:], "rlptx2":Web3.to_hex(signed_trx2.rawTransaction)[2:]}
+    trans = prodNode.pushMessage(defertest2Acc.name, "notifytest", json.dumps(actData), '-p {0}'.format(defertest2Acc.name), silentErrors=False)
+    prodNode.waitForTransBlockIfNeeded(trans[1], True)
+    row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
+    Utils.Print("\taccount row4: ", row4)
+    assert(row4["nonce"] == 5) 
 
 
     # Launch eos-evm-node
@@ -677,8 +834,25 @@ try:
     Utils.Print(f"Launching: {cmd}")
     evmRPCPOpen=Utils.delayedCheckOutput(cmd, stdout=outFile, stderr=errFile)
 
+    Utils.Print("Checking ERROR or CRIT in EOS EVM Node log")
+    stdErrFile = open(nodeStdErrDir, "r")
+    lines = stdErrFile.readlines()
+    for line in lines:
+        if line.find("ERROR") != -1 or line.find("CRIT") != -1:
+            Utils.Print("  Found ERROR in EOS EVM NODE log: ", line)
+            Utils.errorExit("ERROR found in EOS EVM Node log")
+
+    Utils.Print("Checking ERROR or CRIT in EOS EVM ROC log")
+    stdErrFile = open(rpcStdErrDir, "r")
+    lines = stdErrFile.readlines()
+    for line in lines:
+        if line.find("ERROR") != -1 or line.find("CRIT") != -1:
+            Utils.Print("  Found ERROR in EOS EVM RPC log: ", line)
+            Utils.errorExit("ERROR found in EOS EVM RPC log")
+
     # Validate all balances are the same on both sides
     rows=prodNode.getTable(evmAcc.name, evmAcc.name, "account")
+    Utils.Print(f"account balances from leap:{rows}")
     for row in rows['rows']:
         Utils.Print("Checking 0x{0} balance".format(row['eth_address']))
         r = 0
@@ -689,22 +863,8 @@ try:
             raise
         assert r == int(row['balance'],16), f"{row['eth_address']} {r} != {int(row['balance'],16)}"
 
-    foundErr = False
-    stdErrFile = open(nodeStdErrDir, "r")
-    lines = stdErrFile.readlines()
-    for line in lines:
-        if line.find("ERROR") != -1 or line.find("CRIT") != -1:
-            Utils.Print("  Found ERROR in EOS EVM NODE log: ", line)
-            foundErr = True
-
-    stdErrFile = open(rpcStdErrDir, "r")
-    lines = stdErrFile.readlines()
-    for line in lines:
-        if line.find("ERROR") != -1 or line.find("CRIT") != -1:
-            Utils.Print("  Found ERROR in EOS EVM RPC log: ", line)
-            foundErr = True
-
-    testSuccessful= not foundErr
+    Utils.Print("=== nodeos_eos_evm_test successful ===")
+    testSuccessful=True
 finally:
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=killEosInstances, killWallet=killEosInstances, keepLogs=keepLogs, cleanRun=killAll, dumpErrorDetails=dumpErrorDetails)
     if killEosInstances:
