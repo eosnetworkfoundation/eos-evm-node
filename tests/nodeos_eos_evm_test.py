@@ -694,7 +694,7 @@ try:
     actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
     cmd="push action " + evmAcc.name + " pushtx \"" + json.dumps(actData).replace("\"","\\\"") + "\" --delay-sec 2 -p " + minerAcc.name
     trans=prodNode.processCleosCmd(cmd, cmd, silentErrors=True, returnType=ReturnType.raw)
-    Utils.Print(f"trans is {trans}");
+    #Utils.Print(f"trans is {trans}");
     time.sleep(4) # sleep enough time to get hard fails.
     row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
     Utils.Print("\taccount row4: ", row4)
@@ -719,7 +719,7 @@ try:
     actData = {"id":1,"account":evmAcc.name,"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:], "rlptx2":""}
     trans = prodNode.pushMessage(defertestAcc.name, "pushdefer", json.dumps(actData), '-p {0}'.format(defertestAcc.name), silentErrors=False)
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
-    Utils.Print(f"trans is {trans}");
+    #Utils.Print(f"trans is {trans}");
     time.sleep(4) # sleep enough time to get hard fails.
     row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
     Utils.Print("\taccount row4: ", row4)
@@ -756,7 +756,7 @@ try:
     actData = {"id":2,"account":evmAcc.name,"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:], "rlptx2":Web3.to_hex(signed_trx2.rawTransaction)[2:]}
     trans = prodNode.pushMessage(defertestAcc.name, "pushdefer", json.dumps(actData), '-p {0}'.format(defertestAcc.name), silentErrors=False)
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
-    Utils.Print(f"trans is {trans}");
+    #Utils.Print(f"trans is {trans}");
     time.sleep(4) # sleep enough time to get soft fails.
     row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
     Utils.Print("\taccount row4: ", row4)
@@ -777,7 +777,7 @@ try:
     # but evmevmevmevm::pushtx(rlptx1) will be executed before evmevmevmevm::pushtx(miner, rlptx2)
     amount=2.0000
     transferAmount="2.000 {0}".format(CORE_SYMBOL)
-    Utils.Print("Test action ordering: action1: transfer EVM->EOS funds %s from account %s to %s via inline action" % (transferAmount, evmAcc.name, testAcc.name))
+    Utils.Print("Test action ordering: action 1: transfer EVM->EOS funds %s from account %s to %s via inline action" % (transferAmount, evmAcc.name, testAcc.name))
     nonce = nonce + 1
     gasP = getGasPrice()
     signed_trx = w3.eth.account.sign_transaction(dict(
@@ -809,6 +809,8 @@ try:
     row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
     Utils.Print("\taccount row4: ", row4)
     assert(row4["nonce"] == 5) 
+    assert(row4["eth_address"] == "9e126c57330fa71556628e0aabd6b6b6783d99fa")
+    assert(row4["balance"] == "00000000000000000000000000000000000000000000000080cfc165cc75a000")
 
 
     # Launch eos-evm-node
