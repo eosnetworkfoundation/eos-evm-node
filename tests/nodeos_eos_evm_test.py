@@ -318,7 +318,7 @@ try:
 
     # add eosio.code permission
     cmd="set account permission evmevmevmevm active --add-code -p evmevmevmevm@active"
-    prodNode.processCleosCmd(cmd, cmd, silentErrors=True, returnType=ReturnType.raw)
+    prodNode.processCleosCmd(cmd, cmd, silentErrors=False, returnType=ReturnType.raw)
 
     # set defertest contract
     contractDir=eosEvmBuildRoot + "/tests"
@@ -329,7 +329,7 @@ try:
 
     # add eosio.code permission to defertest account
     cmd="set account permission " + defertestAcc.name + " active --add-code -p " + defertestAcc.name + "@active"
-    prodNode.processCleosCmd(cmd, cmd, silentErrors=True, returnType=ReturnType.raw)
+    prodNode.processCleosCmd(cmd, cmd, silentErrors=False, returnType=ReturnType.raw)
 
     # set defertest2 contract
     contractDir=eosEvmBuildRoot + "/tests"
@@ -340,7 +340,7 @@ try:
 
     # add eosio.code permission to defertest2 account
     cmd="set account permission " + defertest2Acc.name + " active --add-code -p " + defertest2Acc.name + "@active"
-    prodNode.processCleosCmd(cmd, cmd, silentErrors=True, returnType=ReturnType.raw)
+    prodNode.processCleosCmd(cmd, cmd, silentErrors=False, returnType=ReturnType.raw)
 
     trans = prodNode.pushMessage(evmAcc.name, "init", '{{"chainid":15555, "fee_params": {{"gas_price": "10000000000", "miner_cut": 100000, "ingress_bridge_fee": "0.0000 {0}"}}}}'.format(CORE_SYMBOL), '-p evmevmevmevm')
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
@@ -693,7 +693,7 @@ try:
     ), evmSendKey)
     actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
     cmd="push action " + evmAcc.name + " pushtx \"" + json.dumps(actData).replace("\"","\\\"") + "\" --delay-sec 2 -p " + minerAcc.name
-    trans=prodNode.processCleosCmd(cmd, cmd, silentErrors=True, returnType=ReturnType.raw)
+    trans=prodNode.processCleosCmd(cmd, cmd, silentErrors=False, returnType=ReturnType.raw)
     #Utils.Print(f"trans is {trans}");
     time.sleep(4) # sleep enough time to get hard fails.
     row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
