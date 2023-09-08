@@ -22,7 +22,7 @@ sys.path.append(os.path.join(os.getcwd(), "tests"))
 from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 from TestHarness.TestHelper import AppArgs
 from TestHarness.testUtils import ReturnType
-from core_symbol import CORE_SYMBOL
+from TestHarness.core_symbol import CORE_SYMBOL
 
 from antelope_name import convert_name_to_value
 
@@ -121,7 +121,7 @@ try:
     Print("Stand up cluster")
     if cluster.launch(topo="bridge", pnodes=totalProducerNodes,
                       totalNodes=totalNodes, totalProducers=totalProducers,
-                      useBiosBootFile=False, extraNodeosArgs=extraNodeosArgs, specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
+                      extraNodeosArgs=extraNodeosArgs, specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
 
@@ -144,7 +144,7 @@ try:
         Utils.errorExit("FAILURE - create keys")
 
     evmAcc = accounts[0]
-    evmAcc.name = "evmevmevmevm"
+    evmAcc.name = "eosio.evm"
     evmAcc.activePrivateKey="5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
     evmAcc.activePublicKey="EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
     accounts[1].name="tester111111" # needed for voting
@@ -209,10 +209,10 @@ try:
     prodNode.publishContract(evmAcc, contractDir, wasmFile, abiFile, waitForTransBlock=True)
 
     # add eosio.code permission
-    cmd="set account permission evmevmevmevm active --add-code -p evmevmevmevm@active"
+    cmd="set account permission eosio.evm active --add-code -p eosio.evm@active"
     prodNode.processCleosCmd(cmd, cmd, silentErrors=True, returnType=ReturnType.raw)
 
-    trans = prodNode.pushMessage(evmAcc.name, "init", '{"chainid":15555, "fee_params": {"gas_price": "150000000000", "miner_cut": 10000, "ingress_bridge_fee": null}}', '-p evmevmevmevm')
+    trans = prodNode.pushMessage(evmAcc.name, "init", '{"chainid":15555, "fee_params": {"gas_price": "150000000000", "miner_cut": 10000, "ingress_bridge_fee": null}}', '-p eosio.evm')
 
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
 
@@ -406,8 +406,8 @@ try:
     def default():
         def forward_request(req):
             if req['method'] == "eth_sendRawTransaction":
-                actData = {"miner":"evmevmevmevm", "rlptx":req['params'][0][2:]}
-                prodNode1.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p evmevmevmevm')
+                actData = {"miner":"eosio.evm", "rlptx":req['params'][0][2:]}
+                prodNode1.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p eosio.evm')
                 return {
                     "id": req['id'],
                     "jsonrpc": "2.0",
