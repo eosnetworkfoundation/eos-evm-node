@@ -3,6 +3,12 @@ build
 tests/nodeos_eos_evm_server/artifacts
 tests/nodeos_eos_evm_server/cache
 tests/nodeos_eos_evm_server/node_modules
+tests/TestLogs
+tests/eos-evm-genesis.json
+tests/etc
+tests/shape_bridge.json
+tests/testnet.dot
+tests/venv
 
 *.pyc
 *.pyo
