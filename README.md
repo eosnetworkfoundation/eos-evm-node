@@ -38,6 +38,13 @@ git submodule update --init --recursive
 Prerequisites:
 - Ubuntu 22 or later or other compatible Linux
 - gcc 11 or later
+- cmake
+- conan
+
+Conan install
+```shell
+pip3 install --user conan==1.58.0 chardet
+```
 
 Easy Steps:
 ```
