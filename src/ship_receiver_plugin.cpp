@@ -10,6 +10,7 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/program_options.hpp>
+#include <silkworm/core/types/evmc_bytes32.hpp>
 
 namespace asio      = boost::asio;
 namespace websocket = boost::beast::websocket;

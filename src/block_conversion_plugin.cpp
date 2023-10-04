@@ -9,6 +9,7 @@
 #include <silkworm/core/types/transaction.hpp>
 #include <silkworm/core/trie/vector_root.hpp>
 #include <silkworm/core/common/endian.hpp>
+#include <silkworm/core/types/evmc_bytes32.hpp>
 
 using sys = sys_plugin;
 

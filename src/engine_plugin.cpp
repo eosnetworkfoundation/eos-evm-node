@@ -19,28 +19,28 @@
 #include <silkworm/node/db/genesis.hpp>
 #include <silkworm/node/backend/remote/backend_kv_server.hpp>
 #include <silkworm/infra/grpc/server/server_settings.hpp>
-#include <silkworm/sentry/api/api_common/sentry_client.hpp>
+#include <silkworm/sentry/api/common/sentry_client.hpp>
 
 //#include <silkworm/rpc/util.hpp>
 
 using sys = sys_plugin;
 using namespace silkworm::sentry;
-using namespace silkworm::sentry::api::api_common;
+using namespace silkworm::sentry::api;
 
-struct nopservice : silkworm::sentry::api::api_common::Service {
+struct nopservice : silkworm::sentry::api::Service {
     boost::asio::awaitable<void> set_status(eth::StatusData status_data) override { co_return; }
     boost::asio::awaitable<uint8_t> handshake() override { co_return 0; };
     boost::asio::awaitable<NodeInfos> node_infos() override { co_return NodeInfos{}; };
-    boost::asio::awaitable<Service::PeerKeys> send_message_by_id(common::Message message, common::EccPublicKey public_key) override { co_return Service::PeerKeys{}; };
-    boost::asio::awaitable<Service::PeerKeys> send_message_to_random_peers(common::Message message, size_t max_peers) override { co_return Service::PeerKeys{}; };
-    boost::asio::awaitable<Service::PeerKeys> send_message_to_all(common::Message message) override { co_return Service::PeerKeys{}; };
-    boost::asio::awaitable<Service::PeerKeys> send_message_by_min_block(common::Message message, size_t max_peers) override { co_return Service::PeerKeys{}; };
-    boost::asio::awaitable<void> peer_min_block(common::EccPublicKey public_key) override { co_return; };
+    boost::asio::awaitable<Service::PeerKeys> send_message_by_id(Message message, EccPublicKey public_key) override { co_return Service::PeerKeys{}; };
+    boost::asio::awaitable<Service::PeerKeys> send_message_to_random_peers(Message message, size_t max_peers) override { co_return Service::PeerKeys{}; };
+    boost::asio::awaitable<Service::PeerKeys> send_message_to_all(Message message) override { co_return Service::PeerKeys{}; };
+    boost::asio::awaitable<Service::PeerKeys> send_message_by_min_block(Message message, size_t max_peers) override { co_return Service::PeerKeys{}; };
+    boost::asio::awaitable<void> peer_min_block(EccPublicKey public_key) override { co_return; };
     boost::asio::awaitable<void> messages( MessageIdSet message_id_filter, std::function<boost::asio::awaitable<void>(MessageFromPeer)> consumer) override { co_return; };
     boost::asio::awaitable<PeerInfos> peers() override { co_return PeerInfos{}; };
     boost::asio::awaitable<size_t> peer_count() { co_return 0; };
-    boost::asio::awaitable<std::optional<PeerInfo>> peer_by_id(common::EccPublicKey public_key) override { co_return std::optional<PeerInfo>{}; };
-    boost::asio::awaitable<void> penalize_peer(common::EccPublicKey public_key) override { co_return; };
+    boost::asio::awaitable<std::optional<PeerInfo>> peer_by_id(EccPublicKey public_key) override { co_return std::optional<PeerInfo>{}; };
+    boost::asio::awaitable<void> penalize_peer(EccPublicKey public_key) override { co_return; };
     boost::asio::awaitable<void> peer_events(std::function<boost::asio::awaitable<void>(PeerEvent)> consumer) override { co_return; };
 };
 
@@ -60,7 +60,7 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
       engine_plugin_impl(const std::string& data_dir, uint32_t num_of_threads, uint32_t max_readers, std::string address, std::optional<std::string> genesis_json) {
 
          node_settings.data_directory = std::make_unique<silkworm::DataDirectory>(data_dir, false);
-         node_settings.etherbase  = silkworm::to_evmc_address(silkworm::from_hex("").value()); // TODO determine etherbase name
+         node_settings.etherbase  = evmc::address{};
          node_settings.chaindata_env_config = {node_settings.data_directory->chaindata().path().string(), false, false};
          node_settings.chaindata_env_config.max_readers = max_readers;
          node_settings.chaindata_env_config.exclusive = false;
@@ -82,7 +82,7 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
          db_env = silkworm::db::open_env(node_settings.chaindata_env_config);
          SILK_INFO << "Created DB environment at location : " << node_settings.data_directory->chaindata().path().string();
 
-         silkworm::db::RWTxn txn(db_env);
+         silkworm::db::RWTxnManaged txn(db_env);
          silkworm::db::table::check_or_create_chaindata_tables(txn);
 
          auto existing_config{silkworm::db::read_chain_config(txn)};
@@ -102,7 +102,7 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
             silkworm::db::initialize_genesis(txn, nlohmann::json::parse(genesis_f), /*allow_exceptions=*/true);
          }
 
-         txn.commit();
+         txn.commit_and_renew();
          node_settings.chain_config = silkworm::db::read_chain_config(txn);
          node_settings.network_id = node_settings.chain_config->chain_id;
 
@@ -131,7 +131,7 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
       }
 
       std::optional<silkworm::BlockHeader> get_head_canonical_header() {
-         silkworm::db::ROTxn txn(db_env);
+         silkworm::db::ROTxnManaged txn(db_env);
          auto head_num = silkworm::db::stages::read_stage_progress(txn, silkworm::db::stages::kHeadersKey);
          return silkworm::db::read_canonical_header(txn, head_num);
       }
@@ -140,7 +140,7 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
          auto header = get_head_canonical_header();
          if(!header) return {};
 
-         silkworm::db::ROTxn txn(db_env);
+         silkworm::db::ROTxnManaged txn(db_env);
          silkworm::Block block;
          auto res = read_block_by_number(txn, header->number, false, block);
          if(!res) return {};
@@ -148,7 +148,7 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
       }
 
       std::optional<silkworm::BlockHeader> get_genesis_header() {
-         silkworm::db::ROTxn txn(db_env);
+         silkworm::db::ROTxnManaged txn(db_env);
          return silkworm::db::read_canonical_header(txn, 0);
       }
 

@@ -23,8 +23,9 @@ class blockchain_plugin_impl : std::enable_shared_from_this<blockchain_plugin_im
             [this](auto new_block) {
                try {
                   static size_t block_count{0};
-
+                  if( new_block->header.number < 1 ) return;
                   SILK_DEBUG << "EVM Block " << new_block->header.number;
+
                   if(!exec_engine) {
                      exec_engine = std::make_unique<silkworm::stagedsync::ExecutionEngine>(appbase::app().get_io_context(), *node_settings, silkworm::db::RWAccess{*db_env});
                      exec_engine->open();
