@@ -24,7 +24,6 @@ enum return_codes {
 int main(int argc, char** argv) {
    et::provider_base_config provider_config;
    et::trx_generator_base_config trx_gen_base_config;
-   et::user_specified_trx_config user_trx_config;
    et::accounts_config accts_config;
    et::trx_tps_tester_config tester_config;
 
@@ -42,8 +41,6 @@ int main(int argc, char** argv) {
    int64_t max_lag_duration_us = 1000000;
    int64_t trx_expr = 3600;
 
-   bool transaction_specified = false;
-
    cli.add_options()
          ("generator-id", bpo::value<uint16_t>(&trx_gen_base_config._generator_id)->default_value(0), "Id for the transaction generator. Allowed range (0-960). Defaults to 0.")
          ("chain-id", bpo::value<std::string>(&chain_id_in), "set the chain id")
@@ -59,9 +56,6 @@ int main(int argc, char** argv) {
          ("monitor-max-lag-duration-us", bpo::value<int64_t>(&max_lag_duration_us)->default_value(1000000), "Max microseconds that transaction generation can be in violation before quitting. Defaults to 1000000 (1s).")
          ("log-dir", bpo::value<std::string>(&trx_gen_base_config._log_dir), "set the logs directory")
          ("stop-on-trx-failed", bpo::value<bool>(&trx_gen_base_config._stop_on_trx_failed)->default_value(true), "stop transaction generation if sending fails.")
-         ("abi-file", bpo::value<std::string>(&user_trx_config._abi_data_file_path), "The path to the contract abi file to use for the supplied transaction action data")
-         ("actions-data", bpo::value<std::string>(&user_trx_config._actions_data_json_file_or_str), "The json actions data file or json actions data description string to use")
-         ("actions-auths", bpo::value<std::string>(&user_trx_config._actions_auths_json_file_or_str), "The json actions auth file or json actions auths description string to use, containting authAcctName to activePrivateKey pairs.")
          ("api-endpoint", bpo::value<std::string>(&provider_config._api_endpoint), "The api endpoint to direct transactions to. Defaults to: '/v1/chain/send_transaction2'")
          ("peer-endpoint-type", bpo::value<std::string>(&provider_config._peer_endpoint_type)->default_value("p2p"), "Identify the peer endpoint api type to determine how to send transactions. Allowable 'p2p' and 'http'. Default: 'p2p'")
          ("peer-endpoint", bpo::value<std::string>(&provider_config._peer_endpoint)->default_value("127.0.0.1"), "set the peer endpoint to send transactions to")
@@ -76,15 +70,6 @@ int main(int argc, char** argv) {
       if(vmap.count("help") > 0) {
          cli.print(std::cerr);
          return SUCCESS;
-      }
-
-      if(user_trx_config.fully_configured()) {
-         ilog("Specifying transaction to generate directly using abi-file, actions-data, and actions-auths.");
-         transaction_specified = true;
-      } else if(user_trx_config.partially_configured()) {
-         ilog("Initialization error: If using abi-file, actions-data, and actions-auths to specify a transaction type to generate, must provide all inputs.");
-         cli.print(std::cerr);
-         return INITIALIZE_FAIL;
       }
 
       if(chain_id_in.empty()) {
@@ -119,7 +104,7 @@ int main(int argc, char** argv) {
 
       std::vector<std::string> account_str_vector;
       boost::split(account_str_vector, accts, boost::is_any_of(","));
-      if(!transaction_specified && account_str_vector.size() < 2) {
+      if(account_str_vector.size() < 2) {
          ilog("Initialization error: did not specify transfer accounts. Auto transfer transaction generation requires at minimum 2 transfer accounts.");
          cli.print(std::cerr);
          return INITIALIZE_FAIL;
@@ -132,7 +117,7 @@ int main(int argc, char** argv) {
 
       std::vector<std::string> private_keys_str_vector;
       boost::split(private_keys_str_vector, p_keys, boost::is_any_of(","));
-      if(!transaction_specified && private_keys_str_vector.size() < 2) {
+      if(private_keys_str_vector.size() < 2) {
          ilog("Initialization error: did not specify accounts' private keys. Auto transfer transaction generation requires at minimum 2 private keys.");
          cli.print(std::cerr);
          return INITIALIZE_FAIL;
@@ -191,29 +176,15 @@ int main(int argc, char** argv) {
    ilog("Initial Accounts config: ${config}", ("config", accts_config.to_string()));
    ilog("Transaction TPS Tester config: ${config}", ("config", tester_config.to_string()));
 
-   if (transaction_specified) {
-      ilog("User Transaction Specified: ${config}", ("config", user_trx_config.to_string()));
-   }
 
    std::shared_ptr<et::tps_performance_monitor> monitor;
-   if (transaction_specified) {
-      auto generator = std::make_shared<et::trx_generator>(trx_gen_base_config, provider_config, user_trx_config);
+   auto generator = std::make_shared<et::transfer_trx_generator>(trx_gen_base_config, provider_config, accts_config);
 
-      monitor = std::make_shared<et::tps_performance_monitor>(spinup_time_us, max_lag_per, max_lag_duration_us);
-      et::trx_tps_tester<et::trx_generator, et::tps_performance_monitor> tester{generator, monitor, tester_config};
+   monitor = std::make_shared<et::tps_performance_monitor>(spinup_time_us, max_lag_per, max_lag_duration_us);
+   et::trx_tps_tester<et::transfer_trx_generator, et::tps_performance_monitor> tester{generator, monitor, tester_config};
 
-      if (!tester.run()) {
-         return OTHER_FAIL;
-      }
-   } else {
-      auto generator = std::make_shared<et::transfer_trx_generator>(trx_gen_base_config, provider_config, accts_config);
-
-      monitor = std::make_shared<et::tps_performance_monitor>(spinup_time_us, max_lag_per, max_lag_duration_us);
-      et::trx_tps_tester<et::transfer_trx_generator, et::tps_performance_monitor> tester{generator, monitor, tester_config};
-
-      if (!tester.run()) {
-         return OTHER_FAIL;
-      }
+   if (!tester.run()) {
+      return OTHER_FAIL;
    }
 
    if (monitor->terminated_early()) {
