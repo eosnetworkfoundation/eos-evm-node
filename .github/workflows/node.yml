@@ -194,7 +194,7 @@ jobs:
           repo: leap
           target: '${{needs.versions.outputs.leap-dev-target}}'
           prereleases: ${{fromJSON(needs.versions.outputs.leap-dev-prerelease)}}
-          file: 'leap-dev.*(x86_64|amd64).deb'
+          file: 'leap-dev.*${{matrix.platform}}.*(x86_64|amd64).deb'
           container-package: experimental-binaries
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -290,7 +290,7 @@ jobs:
           repo: leap
           target: '${{needs.versions.outputs.leap-dev-target}}'
           prereleases: ${{fromJSON(needs.versions.outputs.leap-dev-prerelease)}}
-          file: 'leap-dev.*(x86_64|amd64).deb'
+          file: 'leap-dev.*${{matrix.platform}}.*(x86_64|amd64).deb'
           container-package: experimental-binaries
           token: ${{ secrets.GITHUB_TOKEN }}
 
