@@ -5,7 +5,7 @@
    },
    "leap":{
       "target":"5",
-      "prerelease":false
+      "prerelease":true
    },
    "cdt":{
       "target":"3.1.0",
