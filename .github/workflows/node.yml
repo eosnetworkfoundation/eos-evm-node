@@ -180,13 +180,6 @@ jobs:
     container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
 
     steps:
-      - name: Update Package Index & Upgrade Packages
-        run: |
-          apt-get update
-          apt-get upgrade -y
-          apt update
-          apt upgrade -y
-
       - name: Download leap-dev binary
         uses: AntelopeIO/asset-artifact-download-action@v3
         with:
