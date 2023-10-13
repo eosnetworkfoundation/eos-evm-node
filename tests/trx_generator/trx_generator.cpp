@@ -201,7 +201,7 @@ namespace eosio::testing {
       ilog("create_initial_swap_transactions: total action pairs created: ${pairs}", ("pairs", _trxs.size()));
    }
 
-   void transfer_trx_generator::sign_evm_trx(silkworm::Transaction &trx, uint64_t nonce, std::array<uint8_t, 32> &private_key)
+   void trx_generator_base::sign_evm_trx(silkworm::Transaction &trx, uint64_t nonce, std::array<uint8_t, 32> &private_key)
    {
       silkworm::Bytes rlp;
       trx.chain_id = _config._evm_chain_id;

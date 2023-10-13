@@ -1,5 +1,6 @@
 #pragma once
 
+#include<fc/log/appender.hpp>
 #include<eosio/chain/transaction.hpp>
 #include<eosio/chain/block.hpp>
 #include<boost/asio/ip/tcp.hpp>

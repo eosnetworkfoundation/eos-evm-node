@@ -1,6 +1,6 @@
 find_package(eosio)
 
-set(SILKWORM_LIBRARIES silkworm_core silkworm_infra silkworm_node)
+set(SILKWORM_LIBRARIES silkworm_core )
 
 add_executable(trx_generator main.cpp trx_generator.cpp trx_provider.cpp)
 

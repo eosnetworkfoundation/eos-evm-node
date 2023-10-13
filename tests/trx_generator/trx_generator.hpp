@@ -11,7 +11,6 @@
 
 #include <silkworm/core/types/transaction.hpp>
 #include <silkworm/core/common/util.hpp>
-// #include <silkworm/core/crypto/ecdsa.hpp>
 #include <intx/intx.hpp>
 #include <secp256k1.h>
 #include <secp256k1_recovery.h>
@@ -116,7 +115,6 @@ namespace eosio::testing {
       virtual uint64_t next_nonce(size_t nonce_index);
       virtual void update_resign_transaction(evm_and_signed_transactions_w_signers& trx);
       virtual void sign_evm_trx(silkworm::Transaction &trx, uint64_t nonce, std::array<uint8_t, 32> &private_key);
-      virtual void create_initial_swap_transactions();
       
       chain::action get_action(eosio::chain::name code, eosio::chain::name acttype, std::vector<chain::permission_level> auths, const chain::bytes &data) const;
       void push_transaction(evm_and_signed_transactions_w_signers& trx);
@@ -137,9 +135,7 @@ namespace eosio::testing {
       transfer_trx_generator(const trx_generator_base_config& trx_gen_base_config, const provider_base_config& provider_config, const accounts_config& accts_config);
 
       virtual uint64_t next_nonce(size_t nonce_index);
-      virtual void update_resign_transaction(evm_and_signed_transactions_w_signers& trx);
-      virtual void sign_evm_trx(silkworm::Transaction &trx, uint64_t nonce, std::array<uint8_t, 32> &private_key);
-      virtual void create_initial_swap_transactions();
+      void create_initial_swap_transactions();
 
       void create_evm_and_signed_transactions_w_signers(evmc::address &from, evmc::address &to, size_t from_nonce_index, std::array<uint8_t, 32> &from_priv_key);
       void sign_swap(silkworm::Transaction &trx, uint64_t evm_chain_id, std::array<uint8_t, 32> &private_key);
