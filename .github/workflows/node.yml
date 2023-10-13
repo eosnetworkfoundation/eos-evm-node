@@ -198,7 +198,8 @@ jobs:
           container-package: experimental-binaries
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download leap binary
+      - if: needs.versions.outputs.leap-target != 'DEFAULT' && (startsWith(needs.versions.outputs.leap-target, 3) || startsWith(needs.versions.outputs.leap-target, 4)) 
+        name: Download leap binary
         uses: AntelopeIO/asset-artifact-download-action@v3
         with:
           owner: AntelopeIO
@@ -207,6 +208,15 @@ jobs:
           prereleases: ${{fromJSON(needs.versions.outputs.leap-prerelease)}}
           file: 'leap.*${{matrix.platform}}.*(x86_64|amd64).deb'
           token: ${{ secrets.GITHUB_TOKEN }}
+      - if: needs.versions.outputs.leap-target == 'DEFAULT' || !(startsWith(needs.versions.outputs.leap-target, 3) && startsWith(needs.versions.outputs.leap-target, 4)) 
+        name: Download Prev Leap Version
+        uses: AntelopeIO/asset-artifact-download-action@v3
+        with:
+          owner: AntelopeIO
+          repo: leap
+          target: '${{needs.versions.outputs.leap-target}}'
+          prereleases: ${{fromJSON(needs.versions.outputs.leap-prerelease)}}
+          file: 'leap.*amd64.deb'
 
       - name: Install Leap
         run: |
@@ -284,7 +294,8 @@ jobs:
           container-package: experimental-binaries
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download leap binary
+      - if: needs.versions.outputs.leap-target != 'DEFAULT' && (startsWith(needs.versions.outputs.leap-target, 3) || startsWith(needs.versions.outputs.leap-target, 4)) 
+        name: Download leap binary
         uses: AntelopeIO/asset-artifact-download-action@v3
         with:
           owner: AntelopeIO
@@ -293,6 +304,15 @@ jobs:
           prereleases: ${{fromJSON(needs.versions.outputs.leap-prerelease)}}
           file: 'leap.*${{matrix.platform}}.*(x86_64|amd64).deb'
           token: ${{ secrets.GITHUB_TOKEN }}
+      - if: needs.versions.outputs.leap-target == 'DEFAULT' || !(startsWith(needs.versions.outputs.leap-target, 3) && startsWith(needs.versions.outputs.leap-target, 4)) 
+        name: Download Prev Leap Version
+        uses: AntelopeIO/asset-artifact-download-action@v3
+        with:
+          owner: AntelopeIO
+          repo: leap
+          target: '${{needs.versions.outputs.leap-target}}'
+          prereleases: ${{fromJSON(needs.versions.outputs.leap-prerelease)}}
+          file: 'leap.*amd64.deb'
 
       - name: Install Leap
         run: |

@@ -1,7 +1,7 @@
 {
    "leap-dev":{
       "target":"5",
-      "prerelease":false
+      "prerelease":true
    },
    "leap":{
       "target":"5",
