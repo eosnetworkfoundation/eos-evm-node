@@ -33,8 +33,11 @@ int main(int argc, char** argv) {
    bpo::options_description cli("Transaction Generator command line options.");
    std::string chain_id_in;
    std::string contract_owner_account_in;
+   std::string miner_account_in;
+   std::string miner_p_key;
    std::string lib_id_str;
    std::string accts;
+   std::string nonces;
    std::string p_keys;
    int64_t spinup_time_us = 1000000;
    uint32_t max_lag_per = 5;
@@ -43,10 +46,15 @@ int main(int argc, char** argv) {
 
    cli.add_options()
          ("generator-id", bpo::value<uint16_t>(&trx_gen_base_config._generator_id)->default_value(0), "Id for the transaction generator. Allowed range (0-960). Defaults to 0.")
-         ("chain-id", bpo::value<std::string>(&chain_id_in), "set the chain id")
-         ("contract-owner-account", bpo::value<std::string>(&contract_owner_account_in), "Account name of the contract account for the transaction actions")
-         ("accounts", bpo::value<std::string>(&accts), "comma-separated list of accounts that will be used for transfers. Minimum required accounts: 2.")
+         ("chain-id", bpo::value<std::string>(&chain_id_in), "set the eos chain id")
+         ("evm-chain-id", bpo::value<uint64_t>(&trx_gen_base_config._evm_chain_id)->default_value(15555), "set the eos evm chain id")
+         ("contract-owner-account", bpo::value<std::string>(&contract_owner_account_in), "Account name of the contract account for the transaction actions.")
+         ("miner-account", bpo::value<std::string>(&miner_account_in), "Account name of the miner account.")
+         ("miner-priv-keys", bpo::value<std::string>(&miner_p_key), "Miner's private key")
+         ("accounts", bpo::value<std::string>(&accts), "comma-separated list of accounts as uint64_t that will be used for transfers. Minimum required accounts: 2.")
+         ("starting-nonces", bpo::value<std::string>(&nonces), "comma-separated list of starting nonces for each account that will be used for transactions. Minimum required nonces: 2, one per account.")
          ("priv-keys", bpo::value<std::string>(&p_keys), "comma-separated list of private keys in same order of accounts list that will be used to sign transactions. Minimum required: 2.")
+         ("gas-price", bpo::value<uint64_t>(&trx_gen_base_config._gas_price)->default_value(150'000'000'000), "Gas price for transaction. Defaults to 150 gwei (150'000'000'000).")
          ("trx-expiration", bpo::value<int64_t>(&trx_expr)->default_value(3600), "transaction expiration time in seconds. Defaults to 3,600. Maximum allowed: 3,600")
          ("trx-gen-duration", bpo::value<uint32_t>(&tester_config._gen_duration_seconds)->default_value(60), "Transaction generation duration (seconds). Defaults to 60 seconds.")
          ("target-tps", bpo::value<uint32_t>(&tester_config._target_tps)->default_value(1), "Target transactions per second to generate/send. Defaults to 1 transaction per second.")
@@ -102,6 +110,23 @@ int main(int argc, char** argv) {
          trx_gen_base_config._contract_owner_account = eosio::chain::name(contract_owner_account_in);
       }
 
+      if(miner_account_in.empty()) {
+         ilog("Initialization error: missing miner-account");
+         cli.print(std::cerr);
+         return INITIALIZE_FAIL;
+      } else {
+         trx_gen_base_config._miner_account = eosio::chain::name(miner_account_in);
+      }
+
+      if(miner_p_key.empty()) {
+         ilog("Initialization error: did not specify miner account's private key.");
+         cli.print(std::cerr);
+         return INITIALIZE_FAIL;
+      } else {
+         ilog("Initializing miner private key. Attempt to create private_key for ${key} : gen key ${newKey}", ("key", miner_p_key)("newKey", fc::crypto::private_key(miner_p_key)));
+         trx_gen_base_config._miner_p_key = fc::crypto::private_key(miner_p_key);
+      }
+
       std::vector<std::string> account_str_vector;
       boost::split(account_str_vector, accts, boost::is_any_of(","));
       if(account_str_vector.size() < 2) {
@@ -111,7 +136,20 @@ int main(int argc, char** argv) {
       } else if (!accts.empty() && !account_str_vector.empty()) {
          for(const std::string& account_name: account_str_vector) {
             ilog("Initializing accounts. Attempt to create name for ${acct}", ("acct", account_name));
-            accts_config._acct_name_vec.emplace_back(account_name);
+            accts_config._acct_name_vec.emplace_back(boost::lexical_cast<uint64_t>(account_name));
+         }
+      }
+
+      std::vector<std::string> nonces_str_vector;
+      boost::split(nonces_str_vector, nonces, boost::is_any_of(","));
+      if(nonces_str_vector.size() < 2) {
+         ilog("Initialization error: did not specify account nonces. Auto transfer transaction generation requires at minimum 2 initial nonces for transfer accounts.");
+         cli.print(std::cerr);
+         return INITIALIZE_FAIL;
+      } else if (!nonces.empty() && !nonces_str_vector.empty()) {
+         for(const std::string& nonce: nonces_str_vector) {
+            ilog("Initializing nonces. Attempt to create nonces for ${nonce}", ("nonce", nonce));
+            accts_config._nonces.emplace_back(boost::lexical_cast<uint64_t>(nonce));
          }
       }
 
@@ -122,9 +160,12 @@ int main(int argc, char** argv) {
          cli.print(std::cerr);
          return INITIALIZE_FAIL;
       } else if (!p_keys.empty() && !private_keys_str_vector.empty()) {
-         for(const std::string& private_key: private_keys_str_vector) {
-            ilog("Initializing private keys. Attempt to create private_key for ${key} : gen key ${newKey}", ("key", private_key)("newKey", fc::crypto::private_key(private_key)));
-            accts_config._priv_keys_vec.emplace_back(private_key);
+         for(auto private_key : private_keys_str_vector) {
+            ilog("Initializing private keys. Attempt to create private_key for ${key}", ("key", private_key));
+            std::array<uint8_t, 32UL> tmp;
+            std::memcpy(tmp.data(), private_key.data(), tmp.size());
+            ilog("Initializing private keys. Attempt to create private_key for ${key} : gen key ${newKey}", ("key", private_key)("newKey", tmp));
+            accts_config._priv_keys_vec.emplace_back(std::move(tmp));
          }
       }
 
