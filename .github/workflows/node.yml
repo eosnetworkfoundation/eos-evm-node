@@ -347,6 +347,13 @@ jobs:
           cd test_run_root
           ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }}/tests/nodeos_eos_evm_test.py -v --eos-evm-contract-root ${{ steps.evm-contract.outputs.EVM_CONTRACT }} --eos-evm-build-root ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }} --use-miner ${{ steps.eos-evm-miner-build.outputs.EVM_MINER_ROOT }}
 
+      - name: Test Web-Socket Integration
+        run: |
+          echo "=== current directory is $(pwd)==="
+          mkdir test_run_root
+          cd test_run_root
+          ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }}/tests/nodeos_eos_evm_ws_test_basic.py -v --eos-evm-contract-root ${{ steps.evm-contract.outputs.EVM_CONTRACT }} --eos-evm-build-root ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }} --eos-evm-src-root $(pwd)/../
+
       - name: Prepare Logs
         if: failure()
         run: |
