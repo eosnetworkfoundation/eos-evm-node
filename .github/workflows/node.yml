@@ -351,8 +351,13 @@ jobs:
       - name: Test Web-Socket Integration
         run: |
           echo "=== current directory is $(pwd)==="
-          mkdir -p test_run_root
-          cd test_run_root
+          killall -9 nodeos
+          killall -9 keosd
+          killall -9 eos-evm-node
+          killall -9 eos-evm-rpc
+          sleep 1.0
+          mkdir -p ws_test_run_root
+          cd ws_test_run_root
           pip install --upgrade web3
           pip install otree
           pip install websocket
@@ -361,7 +366,7 @@ jobs:
       - name: Prepare Logs
         if: failure()
         run: |
-          tar -czf leap-int-test-logs.tar.gz test_run_root/*
+          tar -czf leap-int-test-logs.tar.gz test_run_root/* ws_test_run_root/*
 
       - name: Upload logs from failed tests
         uses: actions/upload-artifact@v3
