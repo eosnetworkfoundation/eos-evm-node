@@ -352,10 +352,10 @@ jobs:
         run: |
           echo "=== current directory is $(pwd)==="
           apt-get install psmisc
-          killall -9 nodeos
-          killall -9 keosd
-          killall -9 eos-evm-node
-          killall -9 eos-evm-rpc
+          killall -9 nodeos || true
+          killall -9 keosd || true
+          killall -9 eos-evm-node || true
+          killall -9 eos-evm-rpc || true
           sleep 1.0
           mkdir -p ws_test_run_root
           cd ws_test_run_root
