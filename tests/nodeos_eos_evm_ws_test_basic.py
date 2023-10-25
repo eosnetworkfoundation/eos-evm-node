@@ -28,7 +28,7 @@ sys.path.append(os.path.join(os.getcwd(), "tests"))
 os.environ["CORE_SYMBOL_NAME"]='EOS'
 print(f"CORE_SYMBOL_NAME: {os.environ.get('CORE_SYMBOL_NAME')}")
 
-from TestHarness import Cluster, TestHelper, Utils, WalletMgr, accounts, CORE_SYMBOL
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr, CORE_SYMBOL
 from TestHarness.TestHelper import AppArgs
 from TestHarness.testUtils import ReturnType
 from TestHarness.testUtils import unhandledEnumType
@@ -36,27 +36,21 @@ from TestHarness.testUtils import unhandledEnumType
 from antelope_name import convert_name_to_value
 
 ###############################################################
-# nodeos_eos_evm_test
+# nodeos_eos_evm_ws_test_basic
 #
-# Set up a EOS EVM env and run simple tests.
+# Set up a EOS EVM env and run simple tests with websocket support
 #
 # Need to install:
 #   web3      - pip install web3
+#             - pip install otree
 #
-# --use-miner path to eos-evm-miner. if specified then uses eos-evm-miner to get gas price.
 # --eos-evm-build-root should point to the root of EOS EVM build dir
 # --eos-evm-contract-root should point to root of EOS EVM contract build dir
+# --eos-evm-src-root should point to root of source dir
 #
-# Example (Running with leap src build):
-#  cd ~/leap/build
-#  ~/eos-evm-node/build/tests/nodeos_eos_evm_test.py --eos-evm-contract-root ~/eos-evm/build --eos-evm-build-root ~/eos-evm-node/build --use-miner ~/eos-evm-miner --leave-running
+#  cd build/tests
+# ./nodeos_eos_evm_ws_test_basic.py --eos-evm-contract-root ~/workspaces/TrustEVM/build --eos-evm-build-root ~/workspaces/eos-evm-node/build --eos-evm-src-root ~/workspaces/eos-evm-node -v
 #
-# Example (Running with leap dev-install):
-#  ln -s /usr/share/leap_testing/tests/TestHarness /usr/lib/python3/dist-packages/TestHarness
-#  ~/eos-evm-node/build/tests/nodeos_eos_evm_test.py --eos-evm-contract-root ~/eos-evm/build --eos-evm-build-root ~/eos-evm-node/build --use-miner ~/eos-evm-miner --leave-running
-#
-#  Launches wallet at port: 9899
-#    Example: bin/cleos --wallet-url http://127.0.0.1:9899 ...
 #
 ###############################################################
 
@@ -124,24 +118,6 @@ def interact_with_storage_contract(dest, nonce):
         time.sleep(1)
 
     return nonce
-
-def setEosEvmMinerEnv():
-    os.environ["PRIVATE_KEY"]=f"{minerAcc.activePrivateKey}"
-    os.environ["MINER_ACCOUNT"]=f"{minerAcc.name}"
-    os.environ["RPC_ENDPOINTS"]="http://127.0.0.1:8888"
-    os.environ["PORT"]="18888"
-    os.environ["LOCK_GAS_PRICE"]="true"
-    os.environ["MINER_PERMISSION"]="active"
-    os.environ["EXPIRE_SEC"]="60"
-
-    Utils.Print(f"Set up configuration of eos-evm-miner via environment variables.")
-    Utils.Print(f"PRIVATE_KEY: {os.environ.get('PRIVATE_KEY')}")
-    Utils.Print(f"MINER_ACCOUNT: {os.environ.get('MINER_ACCOUNT')}")
-    Utils.Print(f"RPC_ENDPOINTS: {os.environ.get('RPC_ENDPOINTS')}")
-    Utils.Print(f"PORT: {os.environ.get('PORT')}")
-    Utils.Print(f"LOCK_GAS_PRICE: {os.environ.get('LOCK_GAS_PRICE')}")
-    Utils.Print(f"MINER_PERMISSION: {os.environ.get('MINER_PERMISSION')}")
-    Utils.Print(f"EXPIRE_SEC: {os.environ.get('EXPIRE_SEC')}")
 
 def processUrllibRequest(endpoint, payload={}, silentErrors=False, exitOnError=False, exitMsg=None, returnType=ReturnType.json):
     cmd = f"{endpoint}"
@@ -267,7 +243,7 @@ try:
     prodNode = cluster.getNode(0)
     nonProdNode = cluster.getNode(1)
 
-    accounts=accounts.createAccountKeys(3)
+    accounts=cluster.createAccountKeys(3)
     if accounts is None:
         Utils.errorExit("FAILURE - create keys")
 
@@ -704,7 +680,7 @@ try:
         num=(int)(block_json["number"])
         hash=block_json["hash"]
         parent_hash=block_json["parentHash"]
-        Utils.Print("received block {0} from websocket, hash=0x{1}..., parent=0x{2}...".format(num, hash[0:6], parent_hash[0:6]))
+        Utils.Print("received block {0} from websocket, hash={1}..., parent={2}...".format(num, hash[0:8], parent_hash[0:8]))
         if block_count > 0:
             assert(len(parent_hash) > 0 and parent_hash == prev_hash)
         prev_hash=hash
