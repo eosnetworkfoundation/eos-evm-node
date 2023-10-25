@@ -221,7 +221,8 @@ try:
 
     cluster.killSomeEosInstances(killCount=999)
     cluster.cleanup()
-    walletMgr.shutdown()
+    walletMgr.killall(allInstances=killAll) # leap 4.0?
+    # walletMgr.shutdown() # used for main branch of leap
     walletMgr.cleanup()
 
     specificExtraNodeosArgs={}
