@@ -355,6 +355,7 @@ jobs:
           cd test_run_root
           pip install --upgrade web3
           pip install otree
+          pip install websocket
           ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }}/tests/nodeos_eos_evm_ws_test_basic.py -v --eos-evm-contract-root ${{ steps.evm-contract.outputs.EVM_CONTRACT }} --eos-evm-build-root ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }} --eos-evm-src-root $(pwd)/../
 
       - name: Prepare Logs
