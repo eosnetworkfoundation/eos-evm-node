@@ -325,6 +325,7 @@ jobs:
       - name: Install Test Dependencies
         run: |
           pip install --upgrade web3
+          pip install otree
           apt install -y wget
           wget https://nodejs.org/dist/v18.17.0/node-v18.17.0-linux-x64.tar.xz
           tar xvfJ node-v18.17.0-linux-x64.tar.xz
