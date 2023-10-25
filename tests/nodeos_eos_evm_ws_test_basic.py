@@ -219,7 +219,8 @@ try:
 
     cluster.setWalletMgr(walletMgr)
 
-    cluster.killSomeEosInstances(killCount=999)
+    cluster.killall(allInstances=killAll)
+    # cluster.killSomeEosInstances(killCount=999) # used for main branch of leap
     cluster.cleanup()
     walletMgr.killall(allInstances=killAll) # leap 4.0?
     # walletMgr.shutdown() # used for main branch of leap
