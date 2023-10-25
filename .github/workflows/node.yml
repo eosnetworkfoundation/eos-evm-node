@@ -351,6 +351,7 @@ jobs:
       - name: Test Web-Socket Integration
         run: |
           echo "=== current directory is $(pwd)==="
+          apt-get install psmisc
           killall -9 nodeos
           killall -9 keosd
           killall -9 eos-evm-node
