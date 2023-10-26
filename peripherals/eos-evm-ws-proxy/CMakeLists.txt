@@ -1,0 +1,7 @@
+configure_file( block-monitor.js . COPYONLY )
+configure_file( utils.js . COPYONLY )
+configure_file( subscription-server.js . COPYONLY )
+configure_file( main.js . COPYONLY )
+configure_file( logger.js . COPYONLY )
+configure_file( config.js . COPYONLY )
+configure_file( websocket-handler.js . COPYONLY )

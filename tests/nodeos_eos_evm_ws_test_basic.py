@@ -46,10 +46,9 @@ from antelope_name import convert_name_to_value
 #
 # --eos-evm-build-root should point to the root of EOS EVM build dir
 # --eos-evm-contract-root should point to root of EOS EVM contract build dir
-# --eos-evm-src-root should point to root of source dir
 #
 #  cd build/tests
-# ./nodeos_eos_evm_ws_test_basic.py --eos-evm-contract-root ~/workspaces/TrustEVM/build --eos-evm-build-root ~/workspaces/eos-evm-node/build --eos-evm-src-root ~/workspaces/eos-evm-node -v
+# ./nodeos_eos_evm_ws_test_basic.py --eos-evm-contract-root ~/workspaces/TrustEVM/build --eos-evm-build-root ~/workspaces/eos-evm-node/build -v
 #
 #
 ###############################################################
@@ -58,7 +57,6 @@ Print=Utils.Print
 errorExit=Utils.errorExit
 
 appArgs=AppArgs()
-appArgs.add(flag="--eos-evm-src-root", type=str, help="EOS EVM source dir", default=None)
 appArgs.add(flag="--eos-evm-contract-root", type=str, help="EOS EVM contract build dir", default=None)
 appArgs.add(flag="--eos-evm-build-root", type=str, help="EOS EVM build dir", default=None)
 appArgs.add(flag="--genesis-json", type=str, help="File to save generated genesis json", default="eos-evm-genesis.json")
@@ -69,12 +67,10 @@ killEosInstances= not args.leave_running
 dumpErrorDetails=args.dump_error_details
 keepLogs=args.keep_logs
 killAll=False # args.clean_run
-eosEvmSrcRoot=args.eos_evm_src_root
 eosEvmContractRoot=args.eos_evm_contract_root
 eosEvmBuildRoot=args.eos_evm_build_root
 genesisJson=args.genesis_json
 
-assert eosEvmSrcRoot is not None, "--eos-evm-src-root is required"
 assert eosEvmContractRoot is not None, "--eos-evm-contract-root is required"
 assert eosEvmBuildRoot is not None, "--eos-evm-build-root is required"
 
@@ -632,7 +628,7 @@ try:
             foundErr = True
 
     Utils.Print("starting websocket proxy")
-    cmd = f"node {eosEvmSrcRoot}/peripherals/eos-evm-ws-proxy/main.js"
+    cmd = f"node {eosEvmBuildRoot}/peripherals/eos-evm-ws-proxy/main.js"
     cmdArr=shlex.split(cmd)
     wsStdOutDir = dataDir + "/ws.stdout"
     wsStdErrDir = dataDir + "/ws.stderr"
