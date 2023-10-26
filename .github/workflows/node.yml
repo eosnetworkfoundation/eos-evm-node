@@ -361,6 +361,7 @@ jobs:
           pip install --upgrade web3
           pip install otree
           pip install websocket-client
+          npm install dotenv
           ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }}/tests/nodeos_eos_evm_ws_test_basic.py -v --eos-evm-contract-root ${{ steps.evm-contract.outputs.EVM_CONTRACT }} --eos-evm-build-root ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }}
 
       - name: Prepare Logs
