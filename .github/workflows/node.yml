@@ -353,7 +353,6 @@ jobs:
           echo "=== current directory is $(pwd)==="
           apt-get install psmisc
           killall -9 nodeos || true
-          killall -9 keosd || true
           killall -9 eos-evm-node || true
           killall -9 eos-evm-rpc || true
           sleep 1.0

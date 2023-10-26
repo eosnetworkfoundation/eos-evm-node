@@ -84,7 +84,7 @@ Utils.Debug=debug
 testSuccessful=False
 
 random.seed(seed) # Use a fixed seed for repeatability.
-cluster=Cluster()
+cluster=Cluster(walletd=True)
 walletMgr=WalletMgr(True)
 
 pnodes=1
