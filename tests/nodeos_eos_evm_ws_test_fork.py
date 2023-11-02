@@ -955,6 +955,7 @@ try:
 
     #verify that the non producing node is not alive (and populate the producer nodes with current getInfo data to report if
     #an error occurs)
+    time.sleep(5.0) # give sometime for the nonProdNode to shutdown
     if nonProdNode.verifyAlive():
         Utils.errorExit("Expected the non-producing node to have shutdown.")
 
