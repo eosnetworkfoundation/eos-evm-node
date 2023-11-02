@@ -865,7 +865,8 @@ try:
     # kill at last block before defproducerl, since the block it is killed on will get propagated
     killAtProducer="defproducerb"
     inRowCountPerProducer=12
-    nonProdNode.killNodeOnProducer(producer=killAtProducer, whereInSequence=(inRowCountPerProducer-1))
+    #nonProdNode.killNodeOnProducer(producer=killAtProducer, whereInSequence=(inRowCountPerProducer-1))
+    nonProdNode.kill(killSignal=15)
 
     # ***   Identify a highest block number to check while we are trying to identify where the divergence will occur   ***
 
@@ -890,48 +891,19 @@ try:
         if blockNum>headBlockNum:
             (headBlockNum, libNumAroundDivergence)=getMinHeadAndLib(prodNodes)
 
-        # track the block number and producer from each producing node
-        # we use timeout 70 here because of case when chain break, call to getBlockProducerByNum
-        # and call of producer_plugin::schedule_delayed_production_loop happens nearly immediately
-        # for 10 producers wait cycle is 10 * (12*0.5) = 60 seconds.
-        # for 11 producers wait cycle is 11 * (12*0.5) = 66 seconds.
         blockProducer0=prodNodes[0].getBlockProducerByNum(blockNum, timeout=70)
         blockProducer1=prodNodes[1].getBlockProducerByNum(blockNum, timeout=70)
         Print("blockNum = {} blockProducer0 = {} blockProducer1 = {}".format(blockNum, blockProducer0, blockProducer1))
         blockProducers0.append({"blockNum":blockNum, "prod":blockProducer0})
         blockProducers1.append({"blockNum":blockNum, "prod":blockProducer1})
 
-        #in the case that the preKillBlockNum was also produced by killAtProducer, ensure that we have
-        #at least one producer transition before checking for killAtProducer
-        if not prodChanged:
-            if preKillBlockProducer!=blockProducer0:
-                prodChanged=True
-                Print("prodChanged = True")
-
-        #since it is killing for the last block of killAtProducer, we look for the next producer change
-        if not nextProdChange and prodChanged and blockProducer1==killAtProducer:
-            nextProdChange=True
-            Print("nextProdChange = True")
-        elif nextProdChange and blockProducer1!=killAtProducer:
-            Print("nextProdChange = False")
-            if blockProducer0!=blockProducer1:
-                Print("Divergence identified at block %s, node_00 producer: %s, node_01 producer: %s" % (blockNum, blockProducer0, blockProducer1))
-                actualLastBlockNum=blockNum
-                break
-            else:
-                missedTransitionBlock=blockNum
-                transitionCount+=1
-                Print("missedTransitionBlock = {} transitionCount = {}".format(missedTransitionBlock, transitionCount))
-                # allow this to transition twice, in case the script was identifying an earlier transition than the bridge node received the kill command
-                if transitionCount>1:
-                    Print("At block %d and have passed producer: %s %d times and we have not diverged, stopping looking and letting errors report" % (blockNum, killAtProducer, transitionCount))
-                    actualLastBlockNum=blockNum
-                    break
-
-        #if we diverge before identifying the actualLastBlockNum, then there is an ERROR
         if blockProducer0!=blockProducer1:
-            extra="" if transitionCount==0 else " Diverged after expected killAtProducer transition at block %d." % (missedTransitionBlock)
-            Utils.errorExit("Groups reported different block producers for block number %d.%s %s != %s." % (blockNum,extra,blockProducer0,blockProducer1))
+            Print("Divergence identified at block %s, node_00 producer: %s, node_01 producer: %s" % (blockNum, blockProducer0, blockProducer1))
+            actualLastBlockNum=blockNum
+            break
+
+    if blockProducer0==blockProducer1:
+        errorExit("Divergence not found")
 
     # receive blocks from websocket server
     Utils.Print("receive some blocks from websocket up to the latest blocks, which should cover the expected diverage point");
@@ -955,7 +927,7 @@ try:
 
     #verify that the non producing node is not alive (and populate the producer nodes with current getInfo data to report if
     #an error occurs)
-    time.sleep(5.0) # give sometime for the nonProdNode to shutdown
+    time.sleep(2.0) # give sometime for the nonProdNode to shutdown
     if nonProdNode.verifyAlive():
         Utils.errorExit("Expected the non-producing node to have shutdown.")
 
