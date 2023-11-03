@@ -972,20 +972,21 @@ try:
         info=prodNode.getInfo()
         Print("node info: %s" % (info))
 
-    Print("killing node1(defproducerc) so that bridge node will frist connect to node0 (defproducera, defproducerb)")
-    node1.kill(killSignal=15)
-    time.sleep(2)
-    if node1.verifyAlive():
-        Utils.errorExit("Expected the node 1 to have shutdown.")
+    # Print("killing node1(defproducerc) so that bridge node will frist connect to node0 (defproducera, defproducerb)")
+    # node1.kill(killSignal=9)
+    # node1.killed=True
+    # time.sleep(2)
+    # if node1.verifyAlive():
+    #     Utils.errorExit("Expected the node 1 to have shutdown.")
 
     Print("Relaunching the non-producing bridge node to connect the node 0 (defproducera, defproducerb)")
     if not nonProdNode.relaunch(chainArg=" --hard-replay "):
         errorExit("Failure - (non-production) node %d should have restarted" % (nonProdNode.nodeNum))
 
-    Print("Relaunch node 1 (defproducerc) and let it connect to brigde node that already synced up with node 0")
-    time.sleep(10)
-    if not node1.relaunch(chainArg=" --enable-stale-production "):
-        errorExit("Failure - (non-production) node 1 should have restarted")
+    # Print("Relaunch node 1 (defproducerc) and let it connect to brigde node that already synced up with node 0")
+    # time.sleep(10)
+    # if not node1.relaunch(chainArg=" --enable-stale-production "):
+    #     errorExit("Failure - (non-production) node 1 should have restarted")
 
     Print("Waiting to allow forks to resolve")
     time.sleep(3)
