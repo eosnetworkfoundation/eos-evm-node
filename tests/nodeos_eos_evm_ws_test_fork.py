@@ -834,8 +834,10 @@ try:
     last_ws_native_blocknum = blockNum
     blockProducer=node.getBlockProducerByNum(blockNum)
     while blockProducer != "defproducera" and tries > 0:
-        blockNum+=1
-        blockProducer=node.getBlockProducerByNum(blockNum)
+        time.sleep(0.5)
+        info = node.getInfo()
+        blockNum = int(info["head_block_num"])
+        blockProducer = info["head_block_producer"]
         tries = tries - 1
 
     if tries == 0:
@@ -844,29 +846,29 @@ try:
     Utils.Print("catching the start of defproducerb")
     tries = 30
     while blockProducer != "defproducerb" and tries > 0:
-        blockNum+=1
-        blockProducer=node.getBlockProducerByNum(blockNum)
+        time.sleep(0.5)
+        info = node.getInfo()
+        blockNum = int(info["head_block_num"])
+        blockProducer = info["head_block_producer"]
         tries = tries - 1
 
     if tries == 0:
         Utils.errorExit("failed to catch a block produced by defproducerb")
 
-    blockNum+=1
-    blockProducer=node.getBlockProducerByNum(blockNum)
     blockProducer1=node1.getBlockProducerByNum(blockNum)
     Utils.Print("block number %d is producer by %s in node0" % (blockNum, blockProducer))
     Utils.Print("block number %d is producer by %s in node1" % (blockNum, blockProducer1))
 
     # ***   Killing the "bridge" node   ***
     Print("Sending command to kill \"bridge\" node to separate the 2 producer groups.")
-    # block number to start expecting node killed after
-    preKillBlockNum=nonProdNode.getBlockNum()
-    preKillBlockProducer=nonProdNode.getBlockProducerByNum(preKillBlockNum)
-    # kill at last block before defproducerl, since the block it is killed on will get propagated
+    # # block number to start expecting node killed after
+    preKillBlockNum=blockNum
+    preKillBlockProducer=blockProducer
+    # # kill at last block before defproducerl, since the block it is killed on will get propagated
     killAtProducer="defproducerb"
     inRowCountPerProducer=12
-    #nonProdNode.killNodeOnProducer(producer=killAtProducer, whereInSequence=(inRowCountPerProducer-1))
-    nonProdNode.kill(killSignal=15)
+    # #nonProdNode.killNodeOnProducer(producer=killAtProducer, whereInSequence=(inRowCountPerProducer-1))
+    nonProdNode.kill(killSignal=9)
 
     # ***   Identify a highest block number to check while we are trying to identify where the divergence will occur   ***
 
@@ -877,7 +879,7 @@ try:
     blockProducers1=[]
     libs0=[]
     libs1=[]
-    lastBlockNum=max([preKillBlockNum,postKillBlockNum])+2*maxActiveProducers*inRowCountPerProducer
+    lastBlockNum=max([blockNum,postKillBlockNum])+2*maxActiveProducers*inRowCountPerProducer
     actualLastBlockNum=None
     prodChanged=False
     nextProdChange=False
@@ -975,7 +977,7 @@ try:
         Utils.errorExit("Expected the node 1 to have shutdown.")
 
     Print("Relaunching the non-producing bridge node to connect the node 0 (defproducera, defproducerb)")
-    if not nonProdNode.relaunch(None):
+    if not nonProdNode.relaunch(chainArg=" --hard-replay "):
         errorExit("Failure - (non-production) node %d should have restarted" % (nonProdNode.nodeNum))
 
     Print("Relaunch node 1 (defproducerc) and let it connect to brigde node that already synced up with node 0")
