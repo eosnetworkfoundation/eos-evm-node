@@ -869,6 +869,8 @@ try:
     inRowCountPerProducer=12
     # #nonProdNode.killNodeOnProducer(producer=killAtProducer, whereInSequence=(inRowCountPerProducer-1))
     nonProdNode.kill(killSignal=9)
+    nonProdNode.pid=None
+    nonProdNode.killed=True # false killed
 
     # ***   Identify a highest block number to check while we are trying to identify where the divergence will occur   ***
 
