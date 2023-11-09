@@ -88,6 +88,7 @@ total_nodes=pnodes + 2
 evmNodePOpen = None
 evmRPCPOpen = None
 eosEvmMinerPOpen = None
+wsproxy = None
 
 def interact_with_storage_contract(dest, nonce):
     for i in range(1, 5): # execute a few
@@ -421,17 +422,18 @@ try:
     evmChainId = 15555
 
     Utils.Print("Simple Solidity contract")
-    # // SPDX-License-Identifier: GPL-3.0
-    # pragma solidity >=0.7.0 <0.9.0;
-    # contract Storage {
-    #     uint256 number;
-    #     function store(uint256 num) public {
-    #         number = num;
-    #     }
-    #     function retrieve() public view returns (uint256){
-    #         return number;
-    #     }
-    # }
+# pragma solidity >=0.7.0 <0.9.0;
+# contract Storage {
+#     uint256 number;
+#     function store(uint256 num) public {
+#         number = num;
+#         emit Transfer(address(0), msg.sender, num);
+#     }
+#     function retrieve() public view returns (uint256){
+#         return number;
+#     }
+#     event Transfer(address indexed from, address indexed to, uint value);
+# }
     nonce += 1
     evmChainId = 15555
     gasP = getGasPrice()
@@ -439,14 +441,16 @@ try:
         nonce=nonce,
         gas=1000000,       #5M Gas
         gasPrice=gasP,
-        data=Web3.to_bytes(hexstr='608060405234801561001057600080fd5b50610150806100206000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c80632e64cec11461003b5780636057361d14610059575b600080fd5b610043610075565b60405161005091906100a1565b60405180910390f35b610073600480360381019061006e91906100ed565b61007e565b005b60008054905090565b8060008190555050565b6000819050919050565b61009b81610088565b82525050565b60006020820190506100b66000830184610092565b92915050565b600080fd5b6100ca81610088565b81146100d557600080fd5b50565b6000813590506100e7816100c1565b92915050565b600060208284031215610103576101026100bc565b5b6000610111848285016100d8565b9150509291505056fea2646970667358fe12209ffe32fe5779018f7ee58886c856a4cfdf550f2df32cec944f57716a3abf4a5964736f6c63430008110033'),
+        data=Web3.to_bytes(hexstr='608060405234801561001057600080fd5b506101b6806100206000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c80632e64cec11461003b5780636057361d14610059575b600080fd5b610043610075565b604051610050919061013f565b60405180910390f35b610073600480360381019061006e9190610103565b61007e565b005b60008054905090565b806000819055503373ffffffffffffffffffffffffffffffffffffffff16600073ffffffffffffffffffffffffffffffffffffffff167fddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef836040516100e3919061013f565b60405180910390a350565b6000813590506100fd81610169565b92915050565b60006020828403121561011957610118610164565b5b6000610127848285016100ee565b91505092915050565b6101398161015a565b82525050565b60006020820190506101546000830184610130565b92915050565b6000819050919050565b600080fd5b6101728161015a565b811461017d57600080fd5b5056fea264697066735822122061ba78daf70a6edb2db7cbb1dbac434da1ba14ec0e009d4df8907b8c6ee4d63264736f6c63430008070033'),
         chainId=evmChainId
     ), evmSendKey)
 
     actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
     retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     assert retValue[0], f"push trx should have succeeded: {retValue}"
-    nonce = interact_with_storage_contract(makeContractAddress(fromAdd, nonce), nonce)
+    contract_addr = makeContractAddress(fromAdd, nonce)
+    nonce = interact_with_storage_contract(contract_addr, nonce)
+    nonce_1 = nonce
 
     if genesisJson[0] != '/': genesisJson = os.path.realpath(genesisJson)
     f=open(genesisJson,"w")
@@ -660,12 +664,15 @@ try:
     assert(res["id"] == 123)
     assert(res["jsonrpc"] == "2.0")
 
+    # try eth subscrible to new heads
     Utils.Print("send eth_subscribe for newHeads")
     ws.send("{\"jsonrpc\":  \"2.0\", \"id\": 124, \"method\":  \"eth_subscribe\", \"params\":[\"newHeads\"]}")
     recevied_msg=ws.recv()
     res=json.loads(recevied_msg)
     Utils.Print("eth_subscribe response from websocket:" + recevied_msg)
     assert(res["id"] == 124)
+    sub_id=res["result"]
+    assert(len(sub_id) > 0)
 
     # try to receive some blocks
     block_count = 0
@@ -683,6 +690,91 @@ try:
             assert(len(parent_hash) > 0 and parent_hash == prev_hash)
         prev_hash=hash
         block_count = block_count + 1
+
+    # try to unsubscribe of newheads
+    Utils.Print("send eth_unsubscribe")
+    ws.send("{\"jsonrpc\":  \"2.0\", \"id\": 125, \"method\":  \"eth_unsubscribe\", \"params\":[\""+sub_id+"\"]}")
+    try_count = 10
+    while (try_count > 0):
+        recevied_msg=ws.recv()
+        res=json.loads(recevied_msg)
+        if ("id" in res and res["id"] == 125 and res["result"] == True):
+            break;
+        try_count = try_count - 1
+    if (try_count == 0):
+        Utils.errorExit("failed to unsubscribe, last websocket recevied msg:" + recevied_msg);
+
+    # test eth subscribe for minedTransactions
+    Utils.Print("send eth_subscribe for minedTransactions")
+    ws.send("{\"jsonrpc\":  \"2.0\", \"id\": 126, \"method\":  \"eth_subscribe\", \"params\":[\"minedTransactions\"]}")
+    recevied_msg=ws.recv()
+    res=json.loads(recevied_msg)
+    Utils.Print("eth_subscribe response from websocket:" + recevied_msg)
+    assert(res["id"] == 126)
+    sub_id=res["result"]
+    assert(len(sub_id) > 0)
+
+    time.sleep(2.0)
+    # now transafer from EOS->EVM
+    transferAmount="0.1030 {0}".format(CORE_SYMBOL)
+    Print("Transfer funds %s from account %s to %s" % (transferAmount, testAcc.name, evmAcc.name))
+    prodNode.transferFunds(testAcc, evmAcc, transferAmount, "0x9E126C57330FA71556628e0aabd6B6B6783d99fA", waitForTransBlock=False)
+
+    # try to receive the EOS->EVM transaction
+    try_count = 3
+    while (try_count > 0):
+        recevied_msg=ws.recv()
+        res=json.loads(recevied_msg)
+        Utils.Print("last ws msg is:" + recevied_msg)
+        if ("method" in res and res["method"] == "eth_subscription"):
+            assert(res["params"]["result"]["transaction"]["value"] == "93000000000000000") # 0.103 - 0.01(fee)=0.093
+            break
+        try_count = try_count - 1
+    if (try_count == 0):
+        Utils.errorExit("failed to get transaction of minedTransactions subscription, last websocket recevied msg:" + recevied_msg);
+
+    # try to unsubscribe for minedTransactions
+    Utils.Print("send eth_unsubscribe")
+    ws.send("{\"jsonrpc\":  \"2.0\", \"id\": 126, \"method\":  \"eth_unsubscribe\", \"params\":[\""+sub_id+"\"]}")
+    try_count = 10
+    while (try_count > 0):
+        recevied_msg=ws.recv()
+        res=json.loads(recevied_msg)
+        if ("id" in res and res["id"] == 126 and res["result"] == True):
+            break;
+        try_count = try_count - 1
+    if (try_count == 0):
+        Utils.errorExit("failed to unsubscribe, last websocket recevied msg:" + recevied_msg);
+        
+    time.sleep(1.0)
+
+    # test eth subscribe for logs
+    Utils.Print("send eth_subscribe for logs")
+    ws.send("{\"jsonrpc\":  \"2.0\", \"id\": 127, \"method\":  \"eth_subscribe\", \"params\":[\"logs\"]}")
+    recevied_msg=ws.recv()
+    res=json.loads(recevied_msg)
+    Utils.Print("eth_subscribe response from websocket:" + recevied_msg)
+    assert(res["id"] == 127)
+    sub_id=res["result"]
+    assert(len(sub_id) > 0)
+
+    time.sleep(1.0)
+    # now interact with contract that emits logs
+    evmSendKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+    nonce = nonce_1
+    nonce = interact_with_storage_contract(contract_addr, nonce)
+
+    # receive logs from web-socket server
+    recevied_msg=ws.recv()
+    res=json.loads(recevied_msg)
+    Utils.Print("last ws msg is:" + recevied_msg)
+    assert(res["params"]["result"]["data"] == "0x0000000000000000000000000000000000000000000000000000000000000007")
+    assert(res["params"]["result"]["topics"] == ["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef","0x0000000000000000000000000000000000000000000000000000000000000000","0x000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266"])
+    recevied_msg=ws.recv()
+    res=json.loads(recevied_msg)
+    Utils.Print("last ws msg is:" + recevied_msg)
+    assert(res["params"]["result"]["data"] == "0x0000000000000000000000000000000000000000000000000000000000000008")
+    assert(res["params"]["result"]["topics"] == ["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef","0x0000000000000000000000000000000000000000000000000000000000000000","0x000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266"])
 
     ws.close()
 
