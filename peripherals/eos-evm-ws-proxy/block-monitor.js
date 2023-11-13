@@ -47,7 +47,7 @@ class BlockMonitor extends EventEmitter {
     let id1 = "get_block_" + number;
     let id2 = "get_logs_" + number;
     let requests = [
-      {jsonrpc:"2.0",method:"eth_getBlockByNumber",params:["0x" + number.toString(16), false], id: id1},
+      {jsonrpc:"2.0",method:"eth_getBlockByNumber",params:["0x" + number.toString(16), true], id: id1},
       {jsonrpc:"2.0",method:"eth_getLogs",params:[{fromBlock: "0x" + number.toString(16), toBlock: "0x" + number.toString(16)}], id: id2}
     ]
     const results = await axios.post(this.web3_rpc_endpoint, requests);
