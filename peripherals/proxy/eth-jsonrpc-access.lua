@@ -69,8 +69,23 @@ local version = body['jsonrpc']
 
 -- check we have a method and a version
 if empty(method) or empty(version) then
-  ngx.log(ngx.ERR, 'no method and/or jsonrpc attribute')
-  ngx.exit(ngx.HTTP_BAD_REQUEST)
+  -- Assuem batch requests for such call. 
+  -- If it's indeed a garbage request, it should not be able to pass the following tests.
+  for k,v in pairs(body) do 
+    if empty(v['method']) or empty(v['jsonrpc']) then
+      ngx.log(ngx.ERR, 'no method and/or jsonrpc attribute in batch') 
+      ngx.exit(ngx.HTTP_BAD_REQUEST)
+      return
+    end
+    if write_calls ~= nil then                               
+      if contains(write_calls, v['method']) then                  
+        ngx.log(ngx.ERR, 'batch write calls not allowed') 
+        ngx.exit(ngx.HTTP_BAD_REQUEST)     
+        return   
+      end                                                           
+    end 
+  end
+  ngx.var.proxy = 'test'
   return
 end
 
