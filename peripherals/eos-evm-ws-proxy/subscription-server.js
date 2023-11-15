@@ -144,9 +144,8 @@ class SubscriptionServer extends EventEmitter {
     // Process all `logs` subscriptions
     // Get logs from the recently appended block 
     if(this.logs_subs.size > 0) {
-      const logs = await this.web3.eth.getPastLogs({fromBlock:block.number, toBlock:block.number});
-      this.logger.debug("LOG => ", JSON.stringify(logs, bigint_replacer));
-      for(const log of logs) {
+      this.logger.debug("LOG => ", JSON.stringify(block.logs, bigint_replacer));
+      for(const log of block.logs) {
         for(const [subid, client] of this.logs_subs) {
           if(this.logs_filter_match(client.filter, log)) {
             this.send_logs_response_and_save(block, client, subid, log);
