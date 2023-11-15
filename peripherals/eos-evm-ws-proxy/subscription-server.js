@@ -49,8 +49,8 @@ class SubscriptionServer extends EventEmitter {
       await this.handle_block_forked({block});
     });
 
-    this.block_monitor.on('block_appended', async ({block, logs}) => {
-      await this.handle_block_appended({block, logs});
+    this.block_monitor.on('block_appended', async ({block}) => {
+      await this.handle_block_appended({block});
     });
   }
 
@@ -140,12 +140,12 @@ class SubscriptionServer extends EventEmitter {
     client.ws.send(JSON.stringify(msg, bigint_replacer));
   }
 
-  async process_logs_subscriptions(block, logs) {
+  async process_logs_subscriptions(block) {
     // Process all `logs` subscriptions
     // Get logs from the recently appended block 
     if(this.logs_subs.size > 0) {
-      this.logger.debug("LOG => ", JSON.stringify(logs, bigint_replacer));
-      for(const log of logs) {
+      this.logger.debug("LOG => ", JSON.stringify(block.logs, bigint_replacer));
+      for(const log of block.logs) {
         for(const [subid, client] of this.logs_subs) {
           if(this.logs_filter_match(client.filter, log)) {
             this.send_logs_response_and_save(block, client, subid, log);
@@ -170,10 +170,10 @@ class SubscriptionServer extends EventEmitter {
     }
   }
 
-  async handle_block_appended({block, logs}) {
+  async handle_block_appended({block}) {
     this.logger.debug(`handle_block_appended: ${block.number}`);
     await this.process_new_heads_subscriptions(block);
-    await this.process_logs_subscriptions(block, logs);
+    await this.process_logs_subscriptions(block);
     await this.process_mined_transactions_subscriptions(block, false);
   }
 

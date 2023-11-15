@@ -681,6 +681,8 @@ try:
         time.sleep(0.5)
         recevied_msg=ws.recv()
         res=json.loads(recevied_msg)
+        if block_count == 0:
+            Utils.Print("recevied block message from websocket:" + recevied_msg)
         block_json=res["params"]["result"]
         num=block_json["number"] # number can be decimal or hex (with 0x prefix)
         hash=block_json["hash"]

@@ -36,9 +36,9 @@ class BlockMonitor extends EventEmitter {
     return this.reversible_blocks.peekBack();
   }
 
-  append_new_block(block, logs) {
+  append_new_block(block) {
     this.reversible_blocks.add(block);
-    this.emit('block_appended', {block, logs});
+    this.emit('block_appended', {block});
   }
 
   async getBlockWithLogs(number_) {
@@ -58,35 +58,30 @@ class BlockMonitor extends EventEmitter {
     const block = results.data[0].result;
     const logs = results.data[1].result;
 
+    block.logs = logs;
     //console.log("RPC batch result:" + JSON.stringify(block));
-    return {block, logs};
+    return block;
   }
 
   async poll() {
-    let res = null;
     let next_block = null;
-    let next_logs = null;
     try {
       // need to be conservative, sometimes getLogs return empty result for head block
       let head_block = await this.web3.eth.getBlock("latest", true);
       let max_block_num = Number(head_block.number) - 1;
 
       let last = this.reversible_blocks.peekBack();
-      if( last == undefined || last == null) {
-        res = await this.getBlockWithLogs(max_block_num);
-        last = res.block;
+      if( last == undefined ) {
+        last = await this.getBlockWithLogs(max_block_num);
         if (last != null) {
-          this.append_new_block(last, res.logs);
+          this.append_new_block(last);
         }
       }
 
       if (last != null && Number(last.number) + 1 < max_block_num) {
-        res = await this.getBlockWithLogs(Number(last.number) + 1);
-        next_block = res.block;
-        next_logs = res.logs;
+        next_block = await this.getBlockWithLogs(Number(last.number) + 1);
       } else {
         next_block = null;
-        next_logs = null;
       }
 
       let found_next_block = false;
@@ -94,16 +89,13 @@ class BlockMonitor extends EventEmitter {
       while(last != null && next_block != null) {
         found_next_block = true;
         if(next_block.parentHash == last.hash) {
-          this.append_new_block(next_block, next_logs);
+          this.append_new_block(next_block);
           last = next_block;
 
           if (Number(last.number) + 1 < max_block_num) {
-            res = await this.getBlockWithLogs(Number(last.number) + 1);
-            next_block = res.block;
-            next_logs = res.logs;
+            next_block = await this.getBlockWithLogs(Number(last.number) + 1);
           } else {
             next_block = null;
-            next_logs = null;
           }
 
         } else {
