@@ -7,6 +7,7 @@ const poll_interval = parseInt(process.env.POLL_INTERVAL, 10) || 1000;
 const max_logs_subs_per_connection = parseInt(process.env.MAX_LOGS_SUBS_PER_CONNECTION, 10) || 1;
 const max_minedtx_subs_per_connection = parseInt(process.env.MAX_MINEDTX_SUBS_PER_CONNECTION, 10) || 1;
 const log_level = process.env.LOG_LEVEL || 'info';
+const genesis_json = process.env.GENESIS_JSON || 'eos-evm-genesis.json';
 
 module.exports = {
   ws_listening_port,
@@ -16,5 +17,6 @@ module.exports = {
   poll_interval,
   max_logs_subs_per_connection,
   max_minedtx_subs_per_connection,
-  log_level
+  log_level,
+  genesis_json
 };
