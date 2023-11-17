@@ -42,6 +42,8 @@ void rpc_plugin::set_program_options( appbase::options_description& cli, appbase
         "comma separated api spec, possible values: debug,engine,eth,net,parity,erigon,txpool,trace,web3")
       ("chain-id", boost::program_options::value<uint32_t>()->default_value(silkworm::kEOSEVMLocalTestnetConfig.chain_id),
         "override chain-id")
+      ("rpc-quirk-flag", boost::program_options::value<uint64_t>()->default_value(0),
+        "rpc quirk flag")
    ;
 }
 
@@ -76,6 +78,7 @@ void rpc_plugin::plugin_initialize( const appbase::variables_map& options ) try 
    const auto& engine_port   = options.at("rpc-engine-port").as<std::string>();
    const auto  threads     = options.at("rpc-threads").as<uint32_t>();
    const auto  max_readers = options.at("rpc-max-readers").as<uint32_t>();
+   const auto  rpc_quirk_flag = options.at("rpc-quirk-flag").as<uint64_t>();
 
    // TODO when we resolve issues with silkrpc compiling in eos-evm-node then remove 
    // the `eos-evm-node` options and use silk_engine for the address and configuration
@@ -125,7 +128,8 @@ void rpc_plugin::plugin_initialize( const appbase::variables_map& options ) try 
       .eth_api_spec          = options.at("api-spec").as<std::string>(),
       .private_api_addr      = node_port,
       .num_workers           = threads,
-      .skip_protocol_check   = true
+      .skip_protocol_check   = true,
+      .rpc_quirk_flag        = rpc_quirk_flag
    };
 
    my.reset(new rpc_plugin_impl(settings));
