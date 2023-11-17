@@ -28,12 +28,13 @@ const { is_plain_object } = require('./utils');
 
 class WebSocketHandler extends EventEmitter {
 
-  constructor({ ws_listening_host, ws_listening_port, web3_rpc_endpoint, logger }) {
+  constructor({ ws_listening_host, ws_listening_port, web3_rpc_endpoint, miner_rpc_endpoint, logger }) {
     super();
 
     this.host = ws_listening_host;
     this.port = ws_listening_port;
     this.web3_rpc_endpoint = web3_rpc_endpoint;
+    this.miner_rpc_endpoint = miner_rpc_endpoint;
     this.logger = logger;
 
     this.server = http.createServer((req, res) => {
@@ -138,6 +139,11 @@ class WebSocketHandler extends EventEmitter {
     return { jsonrpc: "2.0", result: true, id: data.id };
   }
 
+  async handle_miner_methods(data) {
+    const response = await axios.post(this.miner_rpc_endpoint, data);
+    return response.data;
+  }
+
   async handle_other_methods(data) {
     const response = await axios.post(this.web3_rpc_endpoint, data);
     return response.data;
@@ -166,8 +172,9 @@ class WebSocketHandler extends EventEmitter {
       for (let i = 0; i < data.length; ++i) {
         switch(data[i].method) {
           case 'eth_subscribe':
-            break;
           case 'eth_unsubscribe':
+          case 'eth_gasPrice':
+          case 'eth_sendRawTransaction':
             break;
           default:
             data2.push(data[i]);
@@ -176,11 +183,15 @@ class WebSocketHandler extends EventEmitter {
       let rpc_response_data = [];
       let rpc_error_message = null;
       if (data2.length > 0) {
-        const rpc_response = await this.handle_other_methods(data2);
-        if (Array.isArray(rpc_response)) {
-          rpc_response_data = rpc_response;
-        } else {
-          rpc_error_message = "RPC Server Error:" + JSON.stringify({message: rpc_response});
+        try {
+          const rpc_response = await this.handle_other_methods(data2);
+          if (Array.isArray(rpc_response)) {
+            rpc_response_data = rpc_response;
+          } else {
+            rpc_error_message = "RPC Server Error:" + JSON.stringify({message: rpc_response});
+          }
+        } catch (error) {
+          rpc_error_message = "RPC Server Error:" + error.message;
         }
       }
       let rpc_index = 0;
@@ -201,6 +212,19 @@ class WebSocketHandler extends EventEmitter {
           case 'eth_unsubscribe':
             try {
               batch_response.push(this.handle_eth_unsubscribe(ws, data[i]));
+            } catch (error) {
+              batch_response.push({ 
+                id      : data[i].id,
+                jsonrpc : "2.0",
+                error   : { code: -32000, message: error.message }
+              });
+            }
+            break;
+          case 'eth_gasPrice':
+          case 'eth_sendRawTransaction':
+            try {
+              const response_json = await this.handle_miner_methods(data[i]);
+              batch_response.push(response_json);
             } catch (error) {
               batch_response.push({ 
                 id      : data[i].id,
@@ -243,18 +267,25 @@ class WebSocketHandler extends EventEmitter {
             this.send_json_rpc_error(ws, data.id, -32000, error.message);
           }
           break;
-
+        case 'eth_gasPrice':
+        case 'eth_sendRawTransaction':
+          try {
+            const response_json = await this.handle_miner_methods(data);
+            ws.send(JSON.stringify(response_json));
+          } catch (error) {
+            this.send_json_rpc_error(ws, data.id, -32000, "RPC Miner Error:" + error.message);
+          }
+          break;
         default:
           try {
             const response_json = await this.handle_other_methods(data);
             ws.send(JSON.stringify(response_json));
           } catch (error) {
-            this.send_json_rpc_error(ws, data.id, -32000, "RPC Server Error:" + JSON.stringify({error: error}));
+            this.send_json_rpc_error(ws, data.id, -32000, "RPC Server Error:" + error.message);
           }
           break;
       }
     }
-
   }
 
   handle_close(ws) {
