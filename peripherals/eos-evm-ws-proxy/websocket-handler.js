@@ -28,14 +28,21 @@ const { is_plain_object } = require('./utils');
 
 class WebSocketHandler extends EventEmitter {
 
-  constructor({ ws_listening_host, ws_listening_port, web3_rpc_endpoint, miner_rpc_endpoint, logger }) {
+  constructor({ ws_listening_host, ws_listening_port, web3_rpc_endpoint, web3_rpc_test_endpoint, miner_rpc_endpoint, logger, whitelist_methods }) {
     super();
 
     this.host = ws_listening_host;
     this.port = ws_listening_port;
     this.web3_rpc_endpoint = web3_rpc_endpoint;
+    this.web3_rpc_test_endpoint = web3_rpc_test_endpoint;
     this.miner_rpc_endpoint = miner_rpc_endpoint;
     this.logger = logger;
+    this.whitelist_methods = whitelist_methods.split(",");
+
+    console.log("web3_rpc_endpoint is:", this.web3_rpc_endpoint);
+    console.log("web3_rpc_test_endpoint is:", this.web3_rpc_test_endpoint);
+    console.log("miner_rpc_endpoint is:", this.miner_rpc_endpoint);
+    console.log("whitelist_methods are:", this.whitelist_methods);
 
     this.server = http.createServer((req, res) => {
       this.handle_http_request(req, res);
@@ -144,9 +151,14 @@ class WebSocketHandler extends EventEmitter {
     return response.data;
   }
 
-  async handle_other_methods(data) {
-    const response = await axios.post(this.web3_rpc_endpoint, data);
-    return response.data;
+  async handle_other_methods(data, use_test_rpc) {
+    if (use_test_rpc) {
+      const response = await axios.post(this.web3_rpc_test_endpoint, data);
+      return response.data;
+    } else {
+      const response = await axios.post(this.web3_rpc_endpoint, data);
+      return response.data;
+    }
   }
 
   send_json_rpc_error(ws, id, code, message) {
@@ -160,6 +172,7 @@ class WebSocketHandler extends EventEmitter {
   async handle_message(ws, message) {
 
     let data;
+    let use_test_rpc = false;
     try {
         data = JSON.parse(message);
     } catch (e) {
@@ -177,6 +190,9 @@ class WebSocketHandler extends EventEmitter {
           case 'eth_sendRawTransaction':
             break;
           default:
+            if ((this.whitelist_methods.indexOf(data[i].method) < 0)) {
+              use_test_rpc = true;
+            }
             data2.push(data[i]);
         }
       }
@@ -184,7 +200,7 @@ class WebSocketHandler extends EventEmitter {
       let rpc_error_message = null;
       if (data2.length > 0) {
         try {
-          const rpc_response = await this.handle_other_methods(data2);
+          const rpc_response = await this.handle_other_methods(data2, use_test_rpc);
           if (Array.isArray(rpc_response)) {
             rpc_response_data = rpc_response;
           } else {
@@ -278,7 +294,10 @@ class WebSocketHandler extends EventEmitter {
           break;
         default:
           try {
-            const response_json = await this.handle_other_methods(data);
+            if ((this.whitelist_methods.indexOf(data.method) < 0)) {
+              use_test_rpc = true;
+            }
+            const response_json = await this.handle_other_methods(data, use_test_rpc);
             ws.send(JSON.stringify(response_json));
           } catch (error) {
             this.send_json_rpc_error(ws, data.id, -32000, "RPC Server Error:" + error.message);

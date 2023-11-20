@@ -6,11 +6,11 @@ const {bigint_replacer} = require('./utils');
 
 class SubscriptionServer extends EventEmitter {
 
-  constructor({web3_rpc_endpoint, nodeos_rpc_endpoint, miner_rpc_endpoint, ws_listening_host, ws_listening_port, poll_interval, max_logs_subs_per_connection, max_minedtx_subs_per_connection, logger}) {
+  constructor({web3_rpc_endpoint, web3_rpc_test_endpoint, nodeos_rpc_endpoint, miner_rpc_endpoint, ws_listening_host, ws_listening_port, poll_interval, max_logs_subs_per_connection, max_minedtx_subs_per_connection, logger, whitelist_methods}) {
     super();
 
     this.block_monitor = new BlockMonitor({web3_rpc_endpoint, nodeos_rpc_endpoint, poll_interval, logger});
-    this.web_socket_handler = new WebSocketHandler({ws_listening_host, ws_listening_port, web3_rpc_endpoint, miner_rpc_endpoint, logger});
+    this.web_socket_handler = new WebSocketHandler({ws_listening_host, ws_listening_port, web3_rpc_endpoint, web3_rpc_test_endpoint, miner_rpc_endpoint, logger, whitelist_methods});
     this.max_logs_subs_per_connection = max_logs_subs_per_connection;
     this.max_minedtx_subs_per_connection = max_minedtx_subs_per_connection;
     this.web3 = new Web3(web3_rpc_endpoint);

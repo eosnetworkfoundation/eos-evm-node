@@ -21,6 +21,7 @@ class BlockMonitor extends EventEmitter {
 
   async get_eos_lib() {
     const response = await axios.post(this.nodeos_rpc_endpoint+'/v1/chain/get_info', {});
+    console.log("leap last_irreversible_block_num is:", response.data.last_irreversible_block_num);
     return response.data.last_irreversible_block_num;
   }
 
@@ -103,9 +104,14 @@ class BlockMonitor extends EventEmitter {
         }
       }
 
-      if( found_next_block == true ) {
+      while(this.reversible_blocks.length > 1024) { // protection of memory grow in case leap rpc not working
+        this.remove_front_block();
+      }
+
+      if( found_next_block == true && this.reversible_blocks.length > 180 + 30) { // reduce frequency of get_eos_lib
         const eos_lib = await this.get_eos_lib();
-        while(this.reversible_blocks.length > 0 && num_from_id(this.reversible_blocks.peek().mixHash) <= eos_lib) {
+        // keep at least 180 blocks in case evm-node is out of sync with leap
+        while(this.reversible_blocks.length > 180 && num_from_id(this.reversible_blocks.peek().mixHash) <= eos_lib) {
           this.logger.debug(`eoslib: ${eos_lib} ${num_from_id(this.reversible_blocks.peek().mixHash)} ${this.reversible_blocks.peek().number} ${this.reversible_blocks.peek().mixHash}`);
           this.remove_front_block();
         }
