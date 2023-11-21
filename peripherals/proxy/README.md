@@ -13,7 +13,7 @@ location / {
 
 To build (You can change the endpoints through build-arg):
 ```
-sudo docker build -t evm/tx_proxy --build-arg WRITE_ENDPOINT=host.docker.internal:18888 --build-arg READ_ENDPOINT=host.docker.internal:8881 --build-arg TEST_ENDPOINT=host.docker.internal:8882 .
+sudo docker build -t evm/tx_proxy --build-arg WRITE_ENDPOINT=host.docker.internal:18888 --build-arg READ_ENDPOINT=host.docker.internal:8881 --build-arg TEST_ENDPOINT=host.docker.internal:8882 --build-arg WS_ENDPOINT=host.docker.internal:3333 .
 ```
 
 To run:

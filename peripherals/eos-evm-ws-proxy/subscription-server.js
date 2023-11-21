@@ -2,19 +2,21 @@ const EventEmitter = require('events');
 const WebSocketHandler = require('./websocket-handler');
 const BlockMonitor = require('./block-monitor');
 const {Web3} = require('web3');
-const {bigint_replacer} = require('./utils');
-
+const {bigint_replacer, load_json_file} = require('./utils');
 class SubscriptionServer extends EventEmitter {
 
-  constructor({web3_rpc_endpoint, web3_rpc_test_endpoint, nodeos_rpc_endpoint, miner_rpc_endpoint, ws_listening_host, ws_listening_port, poll_interval, max_logs_subs_per_connection, max_minedtx_subs_per_connection, logger, whitelist_methods}) {
+  constructor({web3_rpc_endpoint, web3_rpc_test_endpoint, nodeos_rpc_endpoint, miner_rpc_endpoint, ws_listening_host, ws_listening_port, poll_interval, max_logs_subs_per_connection, max_minedtx_subs_per_connection, logger, whitelist_methods, genesis_json}) {
     super();
 
-    this.block_monitor = new BlockMonitor({web3_rpc_endpoint, nodeos_rpc_endpoint, poll_interval, logger});
+    const genesis = load_json_file(genesis_json);
+
+    this.block_monitor = new BlockMonitor({web3_rpc_endpoint, nodeos_rpc_endpoint, poll_interval, genesis, logger});
     this.web_socket_handler = new WebSocketHandler({ws_listening_host, ws_listening_port, web3_rpc_endpoint, web3_rpc_test_endpoint, miner_rpc_endpoint, logger, whitelist_methods});
     this.max_logs_subs_per_connection = max_logs_subs_per_connection;
     this.max_minedtx_subs_per_connection = max_minedtx_subs_per_connection;
     this.web3 = new Web3(web3_rpc_endpoint);
-    this.logger = logger
+    this.logger = logger;
+    this.genesis = genesis;
 
     this.new_head_subs = new Map();
     this.logs_subs = new Map();
@@ -55,21 +57,21 @@ class SubscriptionServer extends EventEmitter {
   }
 
   handle_block_removed({block}) {
-    this.logger.debug(`handle_block_removed: ${block.number}`);
+    this.logger.debug(`SubscriptionServer::handle_block_removed: ${block.number}`);
     if(this.logs_sent.has(block.number)) {
       this.logs_sent.delete(block.number);
     }
   }
 
   async handle_block_forked({block}) {
-    this.logger.debug(`handle_block_forked: ${block.number}`);
+    this.logger.debug(`SubscriptionServer::handle_block_forked: ${block.number}`);
     const events_sent_at_block = this.logs_sent.get(block.number);
     if (events_sent_at_block != undefined) {
         for(const event_sent of events_sent_at_block) {
           event_sent.msg.params.result.removed = true;
           event_sent.client.ws.send(JSON.stringify(event_sent.msg, bigint_replacer));
         }
-        this.logger.debug(`REMOVING ${block.number}`);  
+        this.logger.debug(`SubscriptionServer::handle_block_forked: REMOVING ${block.number}`);
         this.logs_sent.delete(block.number);
     }
     await this.process_mined_transactions_subscriptions(block, true);
@@ -193,7 +195,7 @@ class SubscriptionServer extends EventEmitter {
     for (const [_, client] of this.new_head_subs) {
       if(ws === client.ws) { throw new Error('Already subscribed');}
     }
-    this.logger.debug(`Adding newHeads subscription ${subid}`);
+    this.logger.debug(`SubscriptionServer::handle_new_heads: Adding newHeads subscription ${subid}`);
     this.new_head_subs.set(subid, {ws});
     this.check_start_monitor();
   }
@@ -206,7 +208,7 @@ class SubscriptionServer extends EventEmitter {
     if( total_logs_subs >= this.max_logs_subs_per_connection ) {
       throw new Error('Max logs subscriptions reached');
     }
-    this.logger.debug(`Adding logs subscription ${subid}`);
+    this.logger.debug(`SubscriptionServer::handle_logs: Adding logs subscription ${subid}`);
     this.logs_subs.set(subid, {ws, filter});
     this.check_start_monitor();
   }
@@ -219,7 +221,7 @@ class SubscriptionServer extends EventEmitter {
     if( total_minedtx_subs >= this.max_minedtx_subs_per_connection ) {
       throw new Error("Max minedTransactions subscriptions reached");
     }
-    this.logger.debug(`Adding minedTransactions subscription ${subid}`);
+    this.logger.debug(`SubscriptionServer::handle_minedTransactions: Adding minedTransactions subscription ${subid}`);
     this.mined_transactions_subs.set(subid, {ws, filter});
     this.check_start_monitor();
   }
@@ -238,7 +240,7 @@ class SubscriptionServer extends EventEmitter {
       throw new Error('Not found');
     }
 
-    this.logger.debug(`Unsubscribing ${subid}`);
+    this.logger.debug(`SubscriptionServer::handle_unsubscribe: Unsubscribing ${subid}`);
     subscription_map.delete(subid);
     this.check_stop_monitor();
   }
@@ -247,21 +249,21 @@ class SubscriptionServer extends EventEmitter {
 
     for (const [subid, client] of this.new_head_subs) {
       if(ws === client.ws) {
-        this.logger.debug(`Removing new_head_subs ${subid}`);
+        this.logger.debug(`SubscriptionServer::handle_disconnect: Removing new_head_subs ${subid}`);
         this.new_head_subs.delete(subid);
       }
     }
 
     for (const [subid, client] of this.logs_subs) {
       if(ws === client.ws) {
-        this.logger.debug(`Removing logs_subs ${subid}`);
+        this.logger.debug(`SubscriptionServer::handle_disconnect: Removing logs_subs ${subid}`);
         this.logs_subs.delete(subid);
       }
     }
 
     for (const [subid, client] of this.mined_transactions_subs) {
       if(ws === client.ws) {
-        this.logger.debug(`Removing mined_transactions_subs ${subid}`);
+        this.logger.debug(`SubscriptionServer::handle_disconnect:Removing mined_transactions_subs ${subid}`);
         this.mined_transactions_subs.delete(subid);
       }
     }
