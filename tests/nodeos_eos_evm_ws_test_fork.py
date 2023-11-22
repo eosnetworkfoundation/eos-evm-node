@@ -817,7 +817,7 @@ try:
         time1 = time.time()
         res=json.loads(recevied_msg)
         block_json=res["params"]["result"]
-        last_ws_evm_blocknum=(int)(block_json["number"])
+        last_ws_evm_blocknum=(block_json["number"])
         hash=block_json["hash"]
         parent_hash=block_json["parentHash"]
         Utils.Print("received block {0} from websocket, hash={1}..., parent={2}...".format(last_ws_evm_blocknum, hash[0:8], parent_hash[0:8]))
@@ -912,19 +912,21 @@ try:
     # receive blocks from websocket server
     Utils.Print("receive some blocks from websocket up to the latest blocks, which should cover the expected diverage point");
     time.sleep(1.0)
+    hash_dict = {}
     while True:
         time0 = time.time()
         recevied_msg=ws.recv()
         time1 = time.time()
         res=json.loads(recevied_msg)
         block_json=res["params"]["result"]
-        last_ws_evm_blocknum=(int)(block_json["number"])
+        last_ws_evm_blocknum=(block_json["number"])
         hash=block_json["hash"]
         parent_hash=block_json["parentHash"]
         Utils.Print("received block {0} from websocket, hash={1}..., parent={2}...".format(last_ws_evm_blocknum, hash[0:8], parent_hash[0:8]))
         if block_count > 0:
             assert(len(parent_hash) > 0 and parent_hash == prev_hash)
         prev_hash=hash
+        hash_dict[hash] = last_ws_evm_blocknum
         block_count = block_count + 1
         if (time1 - time0 > 0.9):
            break
@@ -1053,22 +1055,33 @@ try:
 
     # try to receive some blocks from websocket server
     Utils.Print("receive blocks from websocket up to the latest blocks")
+    fork_switched = False
+    fork_hash = ""
     while True:
         time0 = time.time()
         recevied_msg=ws.recv()
         time1 = time.time()
         res=json.loads(recevied_msg)
         block_json=res["params"]["result"]
-        last_ws_evm_blocknum=(int)(block_json["number"])
+        last_ws_evm_blocknum=(block_json["number"])
         hash=block_json["hash"]
         parent_hash=block_json["parentHash"]
         Utils.Print("received block {0} from websocket, hash={1}..., parent={2}...".format(last_ws_evm_blocknum, hash[0:8], parent_hash[0:8]))
         if block_count > 0:
-            assert(len(parent_hash) > 0 and parent_hash == prev_hash)
+            assert(len(parent_hash) > 0)
+            if parent_hash != prev_hash:
+                assert(parent_hash in hash_dict)
+                fork_switched = True
+                fork_hash = parent_hash
+                Utils.Print("EVM chain fork switch detected, block linkable")
         prev_hash=hash
+        hash_dict[hash] = last_ws_evm_blocknum
         block_count = block_count + 1
         if time1 - time0 > 0.9:
             break;
+
+    assert(fork_switched == True, "no EVM chain fork switch detected")
+    Utils.Print("fork swtiched at hash {0}".format(fork_hash))
 
     blockProducers0=[]
     blockProducers1=[]
