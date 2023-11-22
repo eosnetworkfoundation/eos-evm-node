@@ -681,8 +681,10 @@ try:
         time.sleep(0.5)
         recevied_msg=ws.recv()
         res=json.loads(recevied_msg)
+        if block_count == 0:
+            Utils.Print("recevied block message from websocket:" + recevied_msg)
         block_json=res["params"]["result"]
-        num=(int)(block_json["number"])
+        num=block_json["number"] # number can be decimal or hex (with 0x prefix)
         hash=block_json["hash"]
         parent_hash=block_json["parentHash"]
         Utils.Print("received block {0} from websocket, hash={1}..., parent={2}...".format(num, hash[0:8], parent_hash[0:8]))
@@ -727,7 +729,8 @@ try:
         res=json.loads(recevied_msg)
         Utils.Print("last ws msg is:" + recevied_msg)
         if ("method" in res and res["method"] == "eth_subscription"):
-            assert(res["params"]["result"]["transaction"]["value"] == "93000000000000000") # 0.103 - 0.01(fee)=0.093
+            assert(res["params"]["result"]["transaction"]["value"] == "93000000000000000" or \
+                res["params"]["result"]["transaction"]["value"] == "0x14a6701dc1c8000") # 0.103 - 0.01(fee)=0.093
             break
         try_count = try_count - 1
     if (try_count == 0):
