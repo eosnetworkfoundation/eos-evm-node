@@ -130,11 +130,7 @@ class BlockMonitor extends EventEmitter {
         }
       }
 
-      while(this.reversible_blocks.length > 1024) { // protection of memory grow in case leap rpc not working
-        this.remove_front_block();
-      }
-
-      if( found_next_block == true && this.reversible_blocks.length > 180 + 30) { // reduce frequency of calling get_evm_lib
+      if( found_next_block == true && this.reversible_blocks.length > 180 + 6) { // reduce frequency of calling get_evm_lib
         const evm_lib = await this.get_evm_lib();
         // keep at least 180 blocks in case evm-node is out of sync with leap
         while(this.reversible_blocks.length > 180 && this.reversible_blocks.peek().number < evm_lib) {
