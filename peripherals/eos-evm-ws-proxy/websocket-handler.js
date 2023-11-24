@@ -28,13 +28,21 @@ const { is_plain_object } = require('./utils');
 
 class WebSocketHandler extends EventEmitter {
 
-  constructor({ ws_listening_host, ws_listening_port, web3_rpc_endpoint, logger }) {
+  constructor({ ws_listening_host, ws_listening_port, web3_rpc_endpoint, web3_rpc_test_endpoint, miner_rpc_endpoint, logger, whitelist_methods }) {
     super();
 
     this.host = ws_listening_host;
     this.port = ws_listening_port;
     this.web3_rpc_endpoint = web3_rpc_endpoint;
+    this.web3_rpc_test_endpoint = web3_rpc_test_endpoint;
+    this.miner_rpc_endpoint = miner_rpc_endpoint;
     this.logger = logger;
+    this.whitelist_methods = whitelist_methods.split(",");
+
+    console.log("web3_rpc_endpoint is:", this.web3_rpc_endpoint);
+    console.log("web3_rpc_test_endpoint is:", this.web3_rpc_test_endpoint);
+    console.log("miner_rpc_endpoint is:", this.miner_rpc_endpoint);
+    console.log("whitelist_methods are:", this.whitelist_methods);
 
     this.server = http.createServer((req, res) => {
       this.handle_http_request(req, res);
@@ -62,96 +70,94 @@ class WebSocketHandler extends EventEmitter {
     });
   }
   
-  async handle_eth_subscribe(ws, data) {
+  handle_eth_subscribe(ws, data) {
 
-    try {
-      if (!data.hasOwnProperty('params') || !Array.isArray(data.params) || data.params.length == 0) {
-        throw new Error("No params");
-      }
+    if (!data.hasOwnProperty('params') || !Array.isArray(data.params) || data.params.length == 0) {
+      throw new Error("No params");
+    }
 
-      const subscription_type = data.params[0];
-      if( subscription_type == "newHeads") {
-        const subid = uuidv4();
-        this.emit('newHeads', {subid, ws});
-        ws.send(JSON.stringify({ jsonrpc: "2.0", result: subid, id: data.id }));
-      } else if (subscription_type == "logs") {
-        const subid = uuidv4();
-        let filter = {};
-        if(data.params.length > 1) {
-          filter = data.params[1];
-          if (!(is_plain_object(filter) && filter != null)) {
-            throw new Error("Invalid filter");
-          }
-          if (filter.hasOwnProperty('address') && !(typeof filter.address === 'string' || Array.isArray(filter.address))) {
-            throw new Error("Invalid address filter");
-          }
-          if (filter.hasOwnProperty('topics') && !Array.isArray(filter.topics)) {
-            throw new Error("Invalid topics filter");
-          }
+    const subscription_type = data.params[0];
+    if( subscription_type == "newHeads") {
+      const subid = uuidv4();
+      this.emit('newHeads', {subid, ws});
+      return { jsonrpc: "2.0", result: subid, id: data.id };
+    } else if (subscription_type == "logs") {
+      const subid = uuidv4();
+      let filter = {};
+      if(data.params.length > 1) {
+        filter = data.params[1];
+        if (!(is_plain_object(filter) && filter != null)) {
+          throw new Error("Invalid filter");
         }
-        this.emit('logs', {subid, ws, filter});
-        ws.send(JSON.stringify({ jsonrpc: "2.0", result: subid, id: data.id }));
-      } else if (subscription_type == "minedTransactions") {
-        const subid = uuidv4();
-        let filter = {};
-        if(data.params.length > 1) {
-          filter = data.params[1];
-          if (!(is_plain_object(filter) && filter != null)) {
-            throw new Error("Invalid filter");
+        if (filter.hasOwnProperty('address') && !(typeof filter.address === 'string' || Array.isArray(filter.address))) {
+          throw new Error("Invalid address filter");
+        }
+        if (filter.hasOwnProperty('topics') && !Array.isArray(filter.topics)) {
+          throw new Error("Invalid topics filter");
+        }
+      }
+      this.emit('logs', {subid, ws, filter});
+      return { jsonrpc: "2.0", result: subid, id: data.id };
+    } else if (subscription_type == "minedTransactions") {
+      const subid = uuidv4();
+      let filter = {};
+      if(data.params.length > 1) {
+        filter = data.params[1];
+        if (!(is_plain_object(filter) && filter != null)) {
+          throw new Error("Invalid filter");
+        }
+        if (filter.hasOwnProperty('addresses')) {
+          if(!Array.isArray(filter.addresses)) {
+            throw new Error("Invalid addresses filter");
           }
-          if (filter.hasOwnProperty('addresses')) {
-            if(!Array.isArray(filter.addresses)) {
-              throw new Error("Invalid addresses filter");
+          for(const ofilter of filter.addresses) {
+            this.logger.debug("ELEMENT: ", ofilter);
+            if(!is_plain_object(ofilter) || (typeof(ofilter.to) != 'string' && typeof(ofilter.from) != 'string') ) {
+              throw new Error("Invalid addresses filter element");
             }
-            for(const ofilter of filter.addresses) {
-              this.logger.debug("ELEMENT: ", ofilter);
-              if(!is_plain_object(ofilter) || (typeof(ofilter.to) != 'string' && typeof(ofilter.from) != 'string') ) {
-                throw new Error("Invalid addresses filter element");
-              }
-              if(typeof(ofilter.to) == 'string') {
-                ofilter.to = ofilter.to.toLowerCase();
-              }
-              if(typeof(ofilter.from) == 'string') {
-                ofilter.from = ofilter.from.toLowerCase();
-              }
+            if(typeof(ofilter.to) == 'string') {
+              ofilter.to = ofilter.to.toLowerCase();
+            }
+            if(typeof(ofilter.from) == 'string') {
+              ofilter.from = ofilter.from.toLowerCase();
             }
           }
-          if (filter.hasOwnProperty('includeRemoved') && typeof(filter.includeRemoved) != 'boolean') {
-            throw new Error("Invalid includeRemoved filter");
-          }
-          if (filter.hasOwnProperty('hashesOnly') && typeof(filter.hashesOnly) != 'boolean') {
-            throw new Error("Invalid hashesOnly filter");
-          }
         }
-        this.emit('minedTransactions', {subid, ws, filter});
-        ws.send(JSON.stringify({ jsonrpc: "2.0", result: subid, id: data.id }));
-      } else {
-        throw new Error(`${data.params[0]} not supported`);
+        if (filter.hasOwnProperty('includeRemoved') && typeof(filter.includeRemoved) != 'boolean') {
+          throw new Error("Invalid includeRemoved filter");
+        }
+        if (filter.hasOwnProperty('hashesOnly') && typeof(filter.hashesOnly) != 'boolean') {
+          throw new Error("Invalid hashesOnly filter");
+        }
       }
-    } catch (error) {
-      this.send_json_rpc_error(ws, data.id, -32000, error.message);
+      this.emit('minedTransactions', {subid, ws, filter});
+      return { jsonrpc: "2.0", result: subid, id: data.id };
+    } else {
+      throw new Error(`${data.params[0]} not supported`);
     }
   }
  
-  async handle_eth_unsubscribe(ws, data) {
-    try {
-      if (!data.hasOwnProperty('params') || !Array.isArray(data.params) || data.params.length == 0) {
-        throw new Error("Invalid params");
-      }
-      const subid = data.params[0];
-      this.emit('unsubscribe', {subid, ws});
-      ws.send(JSON.stringify({ jsonrpc: "2.0", result: true, id: data.id }));
-    } catch (error) {
-      this.send_json_rpc_error(ws, data.id, -32000, error.message);
+  handle_eth_unsubscribe(ws, data) {
+    if (!data.hasOwnProperty('params') || !Array.isArray(data.params) || data.params.length == 0) {
+      throw new Error("Invalid params");
     }
+    const subid = data.params[0];
+    this.emit('unsubscribe', {subid, ws});
+    return { jsonrpc: "2.0", result: true, id: data.id };
   }
 
-  async handle_other_methods(ws, data) {
-    try {
+  async handle_miner_methods(data) {
+    const response = await axios.post(this.miner_rpc_endpoint, data);
+    return response.data;
+  }
+
+  async handle_other_methods(data, use_test_rpc) {
+    if (use_test_rpc) {
+      const response = await axios.post(this.web3_rpc_test_endpoint, data);
+      return response.data;
+    } else {
       const response = await axios.post(this.web3_rpc_endpoint, data);
-      ws.send(JSON.stringify(response.data));
-    } catch (error) {
-      this.send_json_rpc_error(ws, data.id, -32000, "Sever Error");
+      return response.data;
     }
   }
 
@@ -166,6 +172,7 @@ class WebSocketHandler extends EventEmitter {
   async handle_message(ws, message) {
 
     let data;
+    let use_test_rpc = false;
     try {
         data = JSON.parse(message);
     } catch (e) {
@@ -173,20 +180,131 @@ class WebSocketHandler extends EventEmitter {
         return;
     }
 
-    switch (data.method) {
+    if (Array.isArray(data)) {
+      let data2 = [];
+      for (let i = 0; i < data.length; ++i) {
+        switch(data[i].method) {
+          case 'eth_subscribe':
+          case 'eth_unsubscribe':
+          case 'eth_gasPrice':
+          case 'eth_sendRawTransaction':
+            break;
+          default:
+            if ((this.whitelist_methods.indexOf(data[i].method) < 0)) {
+              use_test_rpc = true;
+            }
+            data2.push(data[i]);
+        }
+      }
+      let rpc_response_data = [];
+      let rpc_error_message = null;
+      if (data2.length > 0) {
+        try {
+          const rpc_response = await this.handle_other_methods(data2, use_test_rpc);
+          if (Array.isArray(rpc_response)) {
+            rpc_response_data = rpc_response;
+          } else {
+            rpc_error_message = "RPC Server Error:" + JSON.stringify({message: rpc_response});
+          }
+        } catch (error) {
+          rpc_error_message = "RPC Server Error:" + error.message;
+        }
+      }
+      let rpc_index = 0;
+      let batch_response = [];
+      for (let i = 0; i < data.length; ++i) {
+        switch(data[i].method) {
+          case 'eth_subscribe':
+            try {
+              batch_response.push(this.handle_eth_subscribe(ws, data[i]));
+            } catch (error) {
+              batch_response.push({ 
+                id      : data[i].id,
+                jsonrpc : "2.0",
+                error   : { code: -32000, message: error.message }
+              });
+            }
+            break;
+          case 'eth_unsubscribe':
+            try {
+              batch_response.push(this.handle_eth_unsubscribe(ws, data[i]));
+            } catch (error) {
+              batch_response.push({ 
+                id      : data[i].id,
+                jsonrpc : "2.0",
+                error   : { code: -32000, message: error.message }
+              });
+            }
+            break;
+          case 'eth_gasPrice':
+          case 'eth_sendRawTransaction':
+            try {
+              const response_json = await this.handle_miner_methods(data[i]);
+              batch_response.push(response_json);
+            } catch (error) {
+              batch_response.push({ 
+                id      : data[i].id,
+                jsonrpc : "2.0",
+                error   : { code: -32000, message: error.message }
+              });
+            }
+            break;
+          default:
+            if (rpc_index < rpc_response_data.length) {
+              batch_response.push(rpc_response_data[rpc_index]);
+              rpc_index++;
+            } else {
+              batch_response.push({ 
+                id      : data[i].id,
+                jsonrpc : "2.0",
+                error   : { code: -32000, message: rpc_error_message }
+              });
+            }
+        }
+      }
+      ws.send(JSON.stringify(batch_response));
+    }
+    else {
+      switch (data.method) {
         case 'eth_subscribe':
-          await this.handle_eth_subscribe(ws, data);
+          try {
+            const response_json = this.handle_eth_subscribe(ws, data);
+            ws.send(JSON.stringify(response_json));
+          } catch (error) {
+            this.send_json_rpc_error(ws, data.id, -32000, error.message);
+          }
           break;
 
         case 'eth_unsubscribe':
-          await this.handle_eth_unsubscribe(ws, data);  
+          try {
+            const response_json = this.handle_eth_unsubscribe(ws, data);  
+            ws.send(JSON.stringify(response_json));
+          } catch (error) {
+            this.send_json_rpc_error(ws, data.id, -32000, error.message);
+          }
           break;
-
+        case 'eth_gasPrice':
+        case 'eth_sendRawTransaction':
+          try {
+            const response_json = await this.handle_miner_methods(data);
+            ws.send(JSON.stringify(response_json));
+          } catch (error) {
+            this.send_json_rpc_error(ws, data.id, -32000, "RPC Miner Error:" + error.message);
+          }
+          break;
         default:
-          await this.handle_other_methods(ws, data);
+          try {
+            if ((this.whitelist_methods.indexOf(data.method) < 0)) {
+              use_test_rpc = true;
+            }
+            const response_json = await this.handle_other_methods(data, use_test_rpc);
+            ws.send(JSON.stringify(response_json));
+          } catch (error) {
+            this.send_json_rpc_error(ws, data.id, -32000, "RPC Server Error:" + error.message);
+          }
           break;
+      }
     }
-
   }
 
   handle_close(ws) {

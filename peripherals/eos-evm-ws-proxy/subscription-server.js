@@ -5,17 +5,17 @@ const {Web3} = require('web3');
 const {bigint_replacer, load_json_file} = require('./utils');
 class SubscriptionServer extends EventEmitter {
 
-  constructor({web3_rpc_endpoint, nodeos_rpc_endpoint, ws_listening_host, ws_listening_port, poll_interval, max_logs_subs_per_connection, max_minedtx_subs_per_connection, genesis_json, logger}) {
+  constructor({web3_rpc_endpoint, web3_rpc_test_endpoint, nodeos_rpc_endpoint, miner_rpc_endpoint, ws_listening_host, ws_listening_port, poll_interval, max_logs_subs_per_connection, max_minedtx_subs_per_connection, logger, whitelist_methods, genesis_json}) {
     super();
 
     const genesis = load_json_file(genesis_json);
 
     this.block_monitor = new BlockMonitor({web3_rpc_endpoint, nodeos_rpc_endpoint, poll_interval, genesis, logger});
-    this.web_socket_handler = new WebSocketHandler({ws_listening_host, ws_listening_port, web3_rpc_endpoint, logger});
+    this.web_socket_handler = new WebSocketHandler({ws_listening_host, ws_listening_port, web3_rpc_endpoint, web3_rpc_test_endpoint, miner_rpc_endpoint, logger, whitelist_methods});
     this.max_logs_subs_per_connection = max_logs_subs_per_connection;
     this.max_minedtx_subs_per_connection = max_minedtx_subs_per_connection;
     this.web3 = new Web3(web3_rpc_endpoint);
-    this.logger = logger
+    this.logger = logger;
     this.genesis = genesis;
 
     this.new_head_subs = new Map();
