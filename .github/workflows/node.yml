@@ -275,7 +275,7 @@ jobs:
         uses: AntelopeIO/asset-artifact-download-action@v3
         with:
           owner: eosnetworkfoundation
-          repo: eos-evm
+          repo: eos-evm-contract
           target: '${{needs.versions.outputs.eos-evm-contract-target}}'
           prereleases: ${{fromJSON(needs.versions.outputs.eos-evm-contract-prerelease)}}
           file: 'contract.tar.gz'
