@@ -20,7 +20,7 @@ project(eos-evm-node)
 
 set(VERSION_MAJOR 0)
 set(VERSION_MINOR 6)
-set(VERSION_PATCH 2)
+set(VERSION_PATCH 3)
 #set(VERSION_SUFFIX stable)
 
 if(VERSION_SUFFIX)
