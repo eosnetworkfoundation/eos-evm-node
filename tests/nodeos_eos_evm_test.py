@@ -280,7 +280,6 @@ try:
     minerAcc = accounts[2]
     defertestAcc = accounts[3]
     defertest2Acc = accounts[4]
-    minerAcc = txWrapAcc
 
     testWalletName="test"
 
