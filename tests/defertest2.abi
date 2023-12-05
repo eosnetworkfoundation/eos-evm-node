@@ -1,0 +1,44 @@
+{
+    "____comment": "This file was generated with eosio-abigen. DO NOT EDIT ",
+    "version": "eosio::abi/1.2",
+    "types": [],
+    "structs": [
+        {
+            "name": "notifytest",
+            "base": "",
+            "fields": [
+                {
+                    "name": "recipient",
+                    "type": "name"
+                },
+                {
+                    "name": "account",
+                    "type": "name"
+                },
+                {
+                    "name": "miner",
+                    "type": "name"
+                },
+                {
+                    "name": "rlptx",
+                    "type": "bytes"
+                },
+                {
+                    "name": "rlptx2",
+                    "type": "bytes"
+                }
+            ]
+        }
+    ],
+    "actions": [
+        {
+            "name": "notifytest",
+            "type": "notifytest",
+            "ricardian_contract": ""
+        }
+    ],
+    "tables": [],
+    "ricardian_clauses": [],
+    "variants": [],
+    "action_results": []
+}
