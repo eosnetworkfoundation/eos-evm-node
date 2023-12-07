@@ -270,7 +270,7 @@ try:
     prodNode = cluster.getNode(0)
     nonProdNode = cluster.getNode(1)
 
-    accounts=cluster.createAccountKeys(3)
+    accounts=cluster.createAccountKeys(5)
     if accounts is None:
         Utils.errorExit("FAILURE - create keys")
 
@@ -278,11 +278,13 @@ try:
     evmAcc.name = "eosio.evm"
     testAcc = accounts[1]
     minerAcc = accounts[2]
+    defertestAcc = accounts[3]
+    defertest2Acc = accounts[4]
 
     testWalletName="test"
 
     Print("Creating wallet \"%s\"." % (testWalletName))
-    testWallet=walletMgr.create(testWalletName, [cluster.eosioAccount,accounts[0],accounts[1],accounts[2]])
+    testWallet=walletMgr.create(testWalletName, [cluster.eosioAccount,accounts[0],accounts[1],accounts[2],accounts[3],accounts[4]])
 
     addys = {
         "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266":"0x038318535b54105d4a7aae60c08fc45f9687181b4fdfc625bd1a753fa7397fed75,0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
@@ -307,12 +309,34 @@ try:
     contractDir=eosEvmContractRoot + "/evm_runtime"
     wasmFile="evm_runtime.wasm"
     abiFile="evm_runtime.abi"
-    Utils.Print("Publish evm_runtime contract")
+    Utils.Print(f"Publish evm_runtime contract {contractDir}/{wasmFile} to account {evmAcc}")
     prodNode.publishContract(evmAcc, contractDir, wasmFile, abiFile, waitForTransBlock=True)
 
     # add eosio.code permission
     cmd="set account permission eosio.evm active --add-code -p eosio.evm@active"
     prodNode.processCleosCmd(cmd, cmd, silentErrors=True, returnType=ReturnType.raw)
+
+    # set defertest contract
+    contractDir=eosEvmBuildRoot + "/tests"
+    wasmFile="defertest.wasm"
+    abiFile="defertest.abi"
+    Utils.Print(f"Publish defertest contract {contractDir}/{wasmFile} to account {defertestAcc}")
+    prodNode.publishContract(defertestAcc, contractDir, wasmFile, abiFile, waitForTransBlock=True)
+
+    # add eosio.code permission to defertest account
+    cmd="set account permission " + defertestAcc.name + " active --add-code -p " + defertestAcc.name + "@active"
+    prodNode.processCleosCmd(cmd, cmd, silentErrors=False, returnType=ReturnType.raw)
+
+    # set defertest2 contract
+    contractDir=eosEvmBuildRoot + "/tests"
+    wasmFile="defertest2.wasm"
+    abiFile="defertest2.abi"
+    Utils.Print(f"Publish defertest2 contract {contractDir}/{wasmFile} to account {defertest2Acc}")
+    prodNode.publishContract(defertest2Acc, contractDir, wasmFile, abiFile, waitForTransBlock=True)
+
+    # add eosio.code permission to defertest2 account
+    cmd="set account permission " + defertest2Acc.name + " active --add-code -p " + defertest2Acc.name + "@active"
+    prodNode.processCleosCmd(cmd, cmd, silentErrors=False, returnType=ReturnType.raw)
 
     trans = prodNode.pushMessage(evmAcc.name, "init", '{{"chainid":15555, "fee_params": {{"gas_price": "10000000000", "miner_cut": 100000, "ingress_bridge_fee": "0.0000 {0}"}}}}'.format(CORE_SYMBOL), '-p eosio.evm')
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
@@ -639,6 +663,7 @@ try:
     Utils.Print("\taccount row4: ", row4)
     assert(row4["eth_address"] == "9e126c57330fa71556628e0aabd6b6b6783d99fa")
     assert(row4["balance"] == "000000000000000000000000000000000000000000000001887f8db687170000") # 0x1887f8db687170000 => 28282480000000000000 (42.4242 - 0.0100 - 13.1313 - 1.0000 - 2 * 21000 * 10^10)
+    assert(row4["nonce"] == 2)
     expectedAmount="60000135.8250 {0}".format(CORE_SYMBOL)
     evmAccActualAmount=prodNode.getAccountEosBalanceStr(evmAcc.name)
     Utils.Print("\tEVM  Account balance %s" % evmAccActualAmount)
@@ -649,6 +674,207 @@ try:
     Utils.Print("\tTest Account balance %s" % testAccActualAmount)
     if testAccActualAmount != expectedAmount:
         Utils.errorExit("Transfer verification failed. Excepted %s, actual: %s" % (expectedAmount, testAccActualAmount))
+
+    ### Special signature test (begin)
+    # Increment contract
+    '''
+    // SPDX-License-Identifier: GPL-3.0
+    pragma solidity >=0.8.2 <0.9.0;
+    contract Increment {
+        mapping (address => uint256) values;
+        function increment() public {
+            values[msg.sender]++;
+        }
+        function retrieve(address a) public view returns (uint256){
+            return values[a];
+        }
+    }
+    '''
+
+    accSpecialKey = '344260572d5df010d70597386bfeeaecf863a8dbbe3c9a023f81d7056b28815f'
+    accSpecialAdd = w3.eth.account.from_key(accSpecialKey).address
+
+    prodNode.transferFunds(testAcc, evmAcc, "10.0000 EOS", "0x0290ffefa58ee84a3641770ab910c48d3441752d", waitForTransBlock=True)
+    prodNode.transferFunds(testAcc, evmAcc, "1000.0000 EOS", accSpecialAdd, waitForTransBlock=True)
+
+    # Test special signature handling (contract and evm-node)
+    Print("Test special signature handling (both contract and evm-node)")
+    special_nonce = 0
+    signed_trx = w3.eth.account.sign_transaction(dict(
+        nonce=special_nonce,
+        gas=1000000,
+        gasPrice=getGasPrice(),
+        data=Web3.to_bytes(hexstr='608060405234801561001057600080fd5b50610284806100206000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c80630a79309b1461003b578063d09de08a1461006b575b600080fd5b61005560048036038101906100509190610176565b610075565b60405161006291906101bc565b60405180910390f35b6100736100bd565b005b60008060008373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020549050919050565b6000803373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020600081548092919061010c90610206565b9190505550565b600080fd5b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b600061014382610118565b9050919050565b61015381610138565b811461015e57600080fd5b50565b6000813590506101708161014a565b92915050565b60006020828403121561018c5761018b610113565b5b600061019a84828501610161565b91505092915050565b6000819050919050565b6101b6816101a3565b82525050565b60006020820190506101d160008301846101ad565b92915050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b6000610211826101a3565b91507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8203610243576102426101d7565b5b60018201905091905056fea264697066735822122026d27f46966ee75c7a8b2a43923c8796438013de730eb9eec6c24ff581913d6864736f6c63430008120033'),
+        chainId=15555
+    ), accSpecialKey)
+
+    # Deploy "Increment" contract
+    increment_contract = makeContractAddress(accSpecialAdd, special_nonce)
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
+    prodNode.waitForTransBlockIfNeeded(trans[1], True);
+
+    # Test special signature: Call from `accSpecialAdd`
+    special_nonce += 1
+    signed_trx = w3.eth.account.sign_transaction(dict(
+        nonce=special_nonce,
+        gas=1000000,
+        gasPrice=getGasPrice(),
+        to=Web3.to_checksum_address(increment_contract),
+        data=Web3.to_bytes(hexstr='D09DE08A'),  # sha3(increment())=0xD09DE08A
+        chainId=15555
+    ), accSpecialKey)
+
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
+    prodNode.waitForTransBlockIfNeeded(trans[1], True);
+
+    # Test special signature: Call from miner account
+    actData = {"from":minerAcc.name, "to":increment_contract[2:], "value":"0000000000000000000000000000000000000000000000000000000000000000", "data":"d09de08a", "gas_limit":"100000"}
+    trans = prodNode.pushMessage(evmAcc.name, "call", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
+    prodNode.waitForTransBlockIfNeeded(trans[1], True);
+
+    # Test special signature: Call from `0x0290ffefa58ee84a3641770ab910c48d3441752d`
+    prodNode.transferFunds(testAcc, evmAcc, "10.0000 EOS", "0x0290ffefa58ee84a3641770ab910c48d3441752d", waitForTransBlock=True)
+    actData = {"from":"0290ffefa58ee84a3641770ab910c48d3441752d", "to":increment_contract[2:], "value":"0000000000000000000000000000000000000000000000000000000000000000", "data":"d09de08a", "gas_limit":"100000"}
+    trans = prodNode.pushMessage(evmAcc.name, "admincall", json.dumps(actData), '-p {0}'.format(evmAcc.name), silentErrors=True)
+    prodNode.waitForTransBlockIfNeeded(trans[1], True);
+
+    ### Special signature test (end)
+
+    # test hard-failed transaction (with --delay-sec)
+    amount=7.0000
+    transferAmount="7.000 {0}".format(CORE_SYMBOL)
+    Print("Test hard-failed EVM transaction (with delay)")
+    signed_trx = w3.eth.account.sign_transaction(dict(
+        nonce=nonce + 1000, # Wrong nonce -> should hard fails
+        gas=100000,       #100k Gas
+        gasPrice=gasP,
+        to=Web3.to_checksum_address(toAdd),
+        value=int(amount*10000*szabo*100),
+        data=b'',
+        chainId=evmChainId
+    ), evmSendKey)
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    cmd="push action " + evmAcc.name + " pushtx \"" + json.dumps(actData).replace("\"","\\\"") + "\" --delay-sec 2 -p " + minerAcc.name
+    trans=prodNode.processCleosCmd(cmd, cmd, silentErrors=False, returnType=ReturnType.raw)
+    #Utils.Print(f"trans is {trans}");
+    time.sleep(4) # sleep enough time to get hard fails.
+    row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
+    Utils.Print("\taccount row4: ", row4)
+    assert(row4["eth_address"] == "9e126c57330fa71556628e0aabd6b6b6783d99fa")
+    assert(row4["balance"] == "000000000000000000000000000000000000000000000001887f8db687170000") #
+    assert(row4["nonce"] == 2)
+
+
+    # test hard-failed transaction (with defer)
+    amount=9.0000
+    transferAmount="9.000 {0}".format(CORE_SYMBOL)
+    Print("Test hard-failed EVM transaction (with defer)")
+    signed_trx = w3.eth.account.sign_transaction(dict(
+        nonce=nonce + 1000, # Wrong nonce -> should hard fails
+        gas=100000,       #100k Gas
+        gasPrice=gasP,
+        to=Web3.to_checksum_address(toAdd),
+        value=int(amount*10000*szabo*100),
+        data=b'',
+        chainId=evmChainId
+    ), evmSendKey)
+    actData = {"id":1,"account":evmAcc.name,"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:], "rlptx2":""}
+    trans = prodNode.pushMessage(defertestAcc.name, "pushdefer", json.dumps(actData), '-p {0}'.format(defertestAcc.name), silentErrors=False)
+    prodNode.waitForTransBlockIfNeeded(trans[1], True)
+    #Utils.Print(f"trans is {trans}");
+    time.sleep(4) # sleep enough time to get hard fails.
+    row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
+    Utils.Print("\taccount row4: ", row4)
+    assert(row4["eth_address"] == "9e126c57330fa71556628e0aabd6b6b6783d99fa")
+    assert(row4["balance"] == "000000000000000000000000000000000000000000000001887f8db687170000") #
+    assert(row4["nonce"] == 2) # nothing should execute
+
+
+    # test soft-failed transaction (with defer)
+    amount=11.0000
+    transferAmount="11.000 {0}".format(CORE_SYMBOL)
+    Print("Test soft-failed EVM transaction (with defer)")
+    signed_trx = w3.eth.account.sign_transaction(dict(
+        nonce=nonce + 1000, # Wrong nonce -> should hard fails
+        gas=100000,       #100k Gas
+        gasPrice=gasP,
+        to=Web3.to_checksum_address(toAdd),
+        value=int(amount*10000*szabo*100),
+        data=b'',
+        chainId=evmChainId
+    ), evmSendKey)
+    amount=13.0000
+    transferAmount="13.000 {0}".format(CORE_SYMBOL)
+    nonce = nonce + 1
+    signed_trx2 = w3.eth.account.sign_transaction(dict(
+        nonce=nonce, # right nonce
+        gas=100000,       #100k Gas
+        gasPrice=gasP,
+        to=Web3.to_checksum_address(toAdd),
+        value=int(amount*10000*szabo*100),
+        data=b'',
+        chainId=evmChainId
+    ), evmSendKey)
+    actData = {"id":2,"account":evmAcc.name,"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:], "rlptx2":Web3.to_hex(signed_trx2.rawTransaction)[2:]}
+    trans = prodNode.pushMessage(defertestAcc.name, "pushdefer", json.dumps(actData), '-p {0}'.format(defertestAcc.name), silentErrors=False)
+    prodNode.waitForTransBlockIfNeeded(trans[1], True)
+    #Utils.Print(f"trans is {trans}");
+    time.sleep(4) # sleep enough time to get soft fails.
+    row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
+    Utils.Print("\taccount row4: ", row4)
+    assert(row4["eth_address"] == "9e126c57330fa71556628e0aabd6b6b6783d99fa")
+    assert(row4["nonce"] == 3) # rlptx2 is executed by onerror handler
+    assert(row4["balance"] == "000000000000000000000000000000000000000000000000d4158798979be000")
+
+
+    # test action trace execution order which is different than creation order
+    #   defertest2::notifytest(defertest, evmevmevmevm, miner, rlptx, rlptx2) 
+    #      -> 1. create inline action (a) defertest::pushtxinline(evmevmevmevm, miner, rlptx1)
+    #      -> 2. require_recipient(defertest)
+    #      -> 3. on_notify of defertest::notifytest, create inline action (b) evmevmevmevm::pushtx(miner, rlptx2)
+    #      -> 4. inline action (a) executes: create inline action (c) evmevmevmevm::pushtx(rlptx1) 
+    #      -> 5. action (c) executes: evmevmevmevm::pushtx(rlptx1)
+    #      -> 6. action (b) executes: evmevmevmevm::pushtx(rlptx2)
+    # in the above case, evmevmevmevm::pushtx(miner, rlptx2) will be created before evmevmevmevm::pushtx(rlptx1),
+    # but evmevmevmevm::pushtx(rlptx1) will be executed before evmevmevmevm::pushtx(miner, rlptx2)
+    amount=2.0000
+    transferAmount="2.000 {0}".format(CORE_SYMBOL)
+    Utils.Print("Test action ordering: action 1: transfer EVM->EOS funds %s from account %s to %s via inline action" % (transferAmount, evmAcc.name, testAcc.name))
+    nonce = nonce + 1
+    gasP = getGasPrice()
+    signed_trx = w3.eth.account.sign_transaction(dict(
+        nonce=nonce,
+        gas=100000,       #100k Gas
+        gasPrice=gasP,
+        to=Web3.to_checksum_address(toAdd),
+        value=int(amount*10000*szabo*100),
+        data=b'',
+        chainId=evmChainId
+    ), evmSendKey)
+    amount=4.0000
+    transferAmount="4.000 {0}".format(CORE_SYMBOL)
+    Utils.Print("Test action ordering: action 2: transfer EVM->EOS funds %s from account %s to %s via inline action" % (transferAmount, evmAcc.name, testAcc.name))
+    nonce = nonce + 1
+    gasP = getGasPrice()
+    signed_trx2 = w3.eth.account.sign_transaction(dict(
+        nonce=nonce,
+        gas=100000,       #100k Gas
+        gasPrice=gasP,
+        to=Web3.to_checksum_address(toAdd),
+        value=int(amount*10000*szabo*100),
+        data=b'',
+        chainId=evmChainId
+    ), evmSendKey)
+    actData = {"recipient":defertestAcc.name, "account":evmAcc.name, "miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:], "rlptx2":Web3.to_hex(signed_trx2.rawTransaction)[2:]}
+    trans = prodNode.pushMessage(defertest2Acc.name, "notifytest", json.dumps(actData), '-p {0}'.format(defertest2Acc.name), silentErrors=False)
+    prodNode.waitForTransBlockIfNeeded(trans[1], True)
+    row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
+    Utils.Print("\taccount row4: ", row4)
+    assert(row4["nonce"] == 5) 
+    assert(row4["eth_address"] == "9e126c57330fa71556628e0aabd6b6b6783d99fa")
+    assert(row4["balance"] == "00000000000000000000000000000000000000000000000080cfc165cc75a000")
 
 
     # Launch eos-evm-node
@@ -687,6 +913,15 @@ try:
             Utils.Print("ERROR - RPC endpoint not available - Exception thrown - Checking 0x{0} balance".format(row['eth_address']))
             raise
         assert r == int(row['balance'],16), f"{row['eth_address']} {r} != {int(row['balance'],16)}"
+
+    # Validate special signatures handling
+    def get_stored_value(address):
+        result = processUrllibRequest("http://127.0.0.1:8881", payload={"method":"eth_call","params":[{"from":fromAdd, "to":increment_contract, "data":"0x0a79309b000000000000000000000000"+address}, "latest"],"id":1,"jsonrpc":"2.0"})
+        return int(result["payload"]["result"], 16)
+
+    assert(get_stored_value(accSpecialAdd[2:]) == 1) #pushtx
+    assert(get_stored_value(makeReservedEvmAddress(convert_name_to_value(minerAcc.name))[2:]) == 1) #call
+    assert(get_stored_value('0290ffefa58ee84a3641770ab910c48d3441752d') == 1) #admincall
 
     foundErr = False
     stdErrFile = open(nodeStdErrDir, "r")
