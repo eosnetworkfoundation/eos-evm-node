@@ -78,14 +78,17 @@ class BlockMonitor extends EventEmitter {
     const block = results.data[0].result;
     const logs = results.data[1].result;
 
-    if (block["hash"] === undefined) {
+    if (!block || !block["hash"]) {
       throw new Error("missing hash in response for getBlock request of the [getBlock, GetPastLogs] batch request");
     }
+    if (!Array.isArray(logs)) {
+        throw new Error("invalid logs in response for GetPastLogs request of the [getBlock, GetPastLogs] batch request");
+    }
     for (const logEntry of logs) {
-      if (logEntry["blockHash"] === undefined) {
+      if (!logEntry["blockHash"]) {
         throw new Error("missing blockHash in response for GetPastLogs request of the [getBlock, GetPastLogs] batch request");
       }
-      else if (logEntry["blockHash"] != block["hash"]) {
+      else if (logEntry["blockHash"] !== block["hash"]) {
         throw new Error("mismatched hashes in response of [getBlock, GetPastLogs] batch request");
       }
     }
