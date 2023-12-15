@@ -36,11 +36,11 @@ class blockchain_plugin_impl : std::enable_shared_from_this<blockchain_plugin_im
                      block_count=0;
                   }
                } catch (const mdbx::exception& ex) {
-                  SILK_CRIT << "CALLBACK ERR1" << std::string(ex.what());
+                  sys::error("evm_blocks_subscription: mdbx::exception, " + std::string(ex.what()));
                } catch (const std::exception& ex) {
-                  SILK_CRIT << "CALLBACK ERR2" << std::string(ex.what());
+                  sys::error("evm_blocks_subscription: std::exception:" + std::string(ex.what()));
                } catch (...) {
-                  SILK_CRIT << "CALLBACK ERR3";
+                  sys::error("evm_blocks_subscription: unknown exception");
                }
             }
          );
