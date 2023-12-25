@@ -430,9 +430,9 @@ void ship_receiver_plugin::set_program_options( appbase::options_description& cl
       ("ship-core-account", boost::program_options::value<std::string>()->default_value("evmevmevmevm"),
         "Account on the core blockchain that hosts the EOS EVM Contract")
       ("ship-start-from-block-id", boost::program_options::value<std::string>(),
-        "Override Antelope block id to start syncing from"  )
+        "[DEPRECATED] Override Antelope block id to start syncing from"  )
       ("ship-start-from-block-timestamp", boost::program_options::value<int64_t>(),
-        "Timestamp for the provided ship-start-from-block-id, required if block-id provided"  )
+        "[DEPRECATED] Timestamp for the provided ship-start-from-block-id, required if block-id provided"  )
       ("ship-max-retry", boost::program_options::value<uint32_t>(),
         "Max retry times before give up when trying to reconnect to SHiP endpoints"  )
       ("ship-delay-second", boost::program_options::value<uint32_t>(),
@@ -449,14 +449,9 @@ void ship_receiver_plugin::plugin_initialize( const appbase::variables_map& opti
    uint32_t delay_second = 10;
    uint32_t max_retry = 0;
    if (options.contains("ship-start-from-block-id")) {
-      if (!options.contains("ship-start-from-block-timestamp")) {
-         throw std::runtime_error("ship-start-from-block-timestamp required if ship-start-from-block-id provided");
-      }
-      start_block_id = utils::checksum256_from_string( options.at("ship-start-from-block-id").as<std::string>() );
-      start_block_timestamp = options.at("ship-start-from-block-timestamp").as<int64_t>();
-      SILK_INFO << "String from block id: " << utils::to_string( *start_block_id ) << " block num: " << utils::to_block_num(*start_block_id);
+      throw std::runtime_error("ship-start-from-block-id option is deprecated.");
    } else if ( options.contains("ship-start-from-block-timestamp") ) {
-      throw std::runtime_error("ship-start-from-block-timestamp only valid if ship-start-from-block-id provided");
+      throw std::runtime_error("ship-start-from-block-timestamp option is deprecated.");
    }
 
    if (options.contains("ship-max-retry")) {
