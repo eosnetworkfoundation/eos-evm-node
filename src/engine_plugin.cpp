@@ -136,13 +136,16 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
          return silkworm::db::read_canonical_header(txn, head_num);
       }
 
-      std::optional<silkworm::Block> get_head_block() {
+      std::optional<silkworm::Block> get_head_block(uint64_t override_height) {
+         // We may consider trying to override height even we failed to load the canonical header.
+         // But we choose not to do that for now as the failure to fetch the canonical header implies database corruption.
+         // It would be safer to stop processing in such cases.
          auto header = get_head_canonical_header();
          if(!header) return {};
 
          silkworm::db::ROTxn txn(db_env);
          silkworm::Block block;
-         auto res = read_block_by_number(txn, header->number, false, block);
+         auto res = read_block_by_number(txn, override_height < header->number ? override_height : header->number, false, block);
          if(!res) return {};
          return block;
       }
@@ -211,8 +214,8 @@ std::optional<silkworm::BlockHeader> engine_plugin::get_head_canonical_header() 
    return my->get_head_canonical_header();
 }
 
-std::optional<silkworm::Block> engine_plugin::get_head_block() {
-   return my->get_head_block();
+std::optional<silkworm::Block> engine_plugin::get_head_block(uint64_t override_height) {
+   return my->get_head_block(override_height);
 }
 
 std::optional<silkworm::BlockHeader> engine_plugin::get_genesis_header() {

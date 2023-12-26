@@ -29,21 +29,19 @@ class ship_receiver_plugin_impl : std::enable_shared_from_this<ship_receiver_plu
       using native_block_t = channels::native_block;
       static constexpr eosio::name pushtx = eosio::name("pushtx");
 
-      void init(std::string h, std::string p, eosio::name ca,
-                std::optional<eosio::checksum256> start_block_id, int64_t start_block_timestamp,
+      void init(std::string h, std::string p, eosio::name ca, uint64_t input_start_height,
                 uint32_t input_max_retry, uint32_t input_delay_second) {
          SILK_DEBUG << "ship_receiver_plugin_impl INIT";
          host = std::move(h);
          port = std::move(p);
          core_account = ca;
-         start_from_block_id = start_block_id;
-         start_from_block_timestamp = start_block_timestamp;
          last_lib = 0;
          last_block_num = 0;
          delay_second = input_delay_second;
          max_retry = input_max_retry;
          retry_count = 0;
          resolver = std::make_shared<tcp::resolver>(appbase::app().get_io_context());
+         start_from_canonical_height = input_start_height;
          // Defer connection to plugin_start()
       }
 
@@ -353,27 +351,27 @@ class ship_receiver_plugin_impl : std::enable_shared_from_this<ship_receiver_plu
                      << ", continue from: " << start_from;
          }
          else {
-            auto head_header = appbase::app().get_plugin<engine_plugin>().get_head_canonical_header();
-            if (!head_header) {
-               sys::error("Unable to read canonical header");
+            // Only take care of canonical header and input options when it's initial sync.
+            if (start_from_canonical_height != UINT64_MAX) {
+               SILK_INFO << "Override head height with"
+                        << "#" << start_from_canonical_height;
+            }
+
+            auto head_block = appbase::app().get_plugin<engine_plugin>().get_head_block(start_from_canonical_height);
+            if (!head_block) {
+               sys::error("Unable to read canonical block");
                // No reset!
                return;
             }
 
-            // Only take care of canonical header and input options when it's initial sync.
             SILK_INFO << "Get_head_canonical_header: "
-                     << "#" << head_header->number
-                     << ", hash:" << silkworm::to_hex(head_header->hash())
-                     << ", mixHash:" << silkworm::to_hex(head_header->prev_randao);
+                     << "#" << head_block->header.number
+                     << ", hash:" << silkworm::to_hex(head_block->header.hash())
+                     << ", mixHash:" << silkworm::to_hex(head_block->header.prev_randao);
 
-            start_from = utils::to_block_num(head_header->prev_randao.bytes) + 1;
+            start_from = utils::to_block_num(head_block->header.prev_randao.bytes) + 1;
             SILK_INFO << "Canonical header start from block: " << start_from;
             
-            if( start_from_block_id ) {
-               uint32_t block_num = utils::to_block_num(*start_from_block_id);
-               SILK_INFO << "Using specified start block number:" << block_num;
-               start_from = block_num;
-            }
          }
          
          if( res.trace_begin_block > start_from ) {
@@ -392,15 +390,9 @@ class ship_receiver_plugin_impl : std::enable_shared_from_this<ship_receiver_plu
          start_read();
       }
 
-      std::optional<channels::native_block> get_start_from_block() {
-         if( !start_from_block_id ) return {};
-
-         channels::native_block nb{};
-         nb.id = *start_from_block_id;
-         nb.timestamp = start_from_block_timestamp;
-         nb.block_num = utils::to_block_num(*start_from_block_id);
-         return nb;
-      }
+   uint64_t get_start_from_canonical_height() {
+      return start_from_canonical_height;
+   }
 
    private:
       std::shared_ptr<tcp::resolver>                  resolver;
@@ -411,13 +403,12 @@ class ship_receiver_plugin_impl : std::enable_shared_from_this<ship_receiver_plu
       abieos::abi                                     abi;
       channels::native_blocks::channel_type&          native_blocks_channel;
       eosio::name                                     core_account;
-      std::optional<eosio::checksum256>               start_from_block_id;
-      int64_t                                         start_from_block_timestamp{};
       uint32_t                                        last_lib;
       uint32_t                                        last_block_num;
       uint32_t                                        delay_second;
       uint32_t                                        max_retry;
       uint32_t                                        retry_count;
+      uint64_t                                        start_from_canonical_height;
 };
 
 ship_receiver_plugin::ship_receiver_plugin() : my(new ship_receiver_plugin_impl) {}
@@ -429,14 +420,12 @@ void ship_receiver_plugin::set_program_options( appbase::options_description& cl
         "SHiP host address")
       ("ship-core-account", boost::program_options::value<std::string>()->default_value("evmevmevmevm"),
         "Account on the core blockchain that hosts the EOS EVM Contract")
-      ("ship-start-from-block-id", boost::program_options::value<std::string>(),
-        "Override Antelope block id to start syncing from"  )
-      ("ship-start-from-block-timestamp", boost::program_options::value<int64_t>(),
-        "Timestamp for the provided ship-start-from-block-id, required if block-id provided"  )
       ("ship-max-retry", boost::program_options::value<uint32_t>(),
         "Max retry times before give up when trying to reconnect to SHiP endpoints"  )
       ("ship-delay-second", boost::program_options::value<uint32_t>(),
         "Deply in seconds between each retry when trying to reconnect to SHiP endpoints"  )
+      ("ship-start-from-canonical-height", boost::program_options::value<int64_t>(),
+        "Override evm canonical head block to start syncing from"  )
    ;
 }
 
@@ -444,21 +433,19 @@ void ship_receiver_plugin::plugin_initialize( const appbase::variables_map& opti
    auto endpoint = options.at("ship-endpoint").as<std::string>();
    const auto& i = endpoint.find(":");
    auto core     = options.at("ship-core-account").as<std::string>();
-   std::optional<eosio::checksum256> start_block_id;
-   int64_t start_block_timestamp = 0;
+   uint64_t start_from_canonical_height = UINT64_MAX;
    uint32_t delay_second = 10;
    uint32_t max_retry = 0;
    if (options.contains("ship-start-from-block-id")) {
-      if (!options.contains("ship-start-from-block-timestamp")) {
-         throw std::runtime_error("ship-start-from-block-timestamp required if ship-start-from-block-id provided");
-      }
-      start_block_id = utils::checksum256_from_string( options.at("ship-start-from-block-id").as<std::string>() );
-      start_block_timestamp = options.at("ship-start-from-block-timestamp").as<int64_t>();
-      SILK_INFO << "String from block id: " << utils::to_string( *start_block_id ) << " block num: " << utils::to_block_num(*start_block_id);
+      throw std::runtime_error("ship-start-from-block-id deprecated. Please use ship-start-from-canonical-height for similar functionality.");
    } else if ( options.contains("ship-start-from-block-timestamp") ) {
-      throw std::runtime_error("ship-start-from-block-timestamp only valid if ship-start-from-block-id provided");
+      throw std::runtime_error("ship-start-from-block-timestamp deprecated. Please use ship-start-from-canonical-height for similar functionality.");
    }
 
+   if (options.contains("ship-start-from-canonical-height")) {
+      start_from_canonical_height = options.at("ship-start-from-canonical-height").as<uint64_t>();
+   }
+   
    if (options.contains("ship-max-retry")) {
       max_retry = options.at("ship-max-retry").as<uint32_t>();
    }
@@ -467,7 +454,7 @@ void ship_receiver_plugin::plugin_initialize( const appbase::variables_map& opti
       delay_second = options.at("ship-delay-second").as<uint32_t>();
    }
 
-   my->init(endpoint.substr(0, i), endpoint.substr(i+1), eosio::name(core), start_block_id, start_block_timestamp, max_retry, delay_second);
+   my->init(endpoint.substr(0, i), endpoint.substr(i+1), eosio::name(core), start_from_canonical_height, max_retry, delay_second);
    SILK_INFO << "Initialized SHiP Receiver Plugin";
 }
 
@@ -481,6 +468,7 @@ void ship_receiver_plugin::plugin_shutdown() {
    SILK_INFO << "Shutdown SHiP Receiver";
 }
 
-std::optional<channels::native_block> ship_receiver_plugin::get_start_from_block() {
-   return my->get_start_from_block();
+uint64_t ship_receiver_plugin::get_start_from_canonical_height() {
+   return my->get_start_from_canonical_height();
 }
+
