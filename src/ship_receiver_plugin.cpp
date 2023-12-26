@@ -424,7 +424,7 @@ void ship_receiver_plugin::set_program_options( appbase::options_description& cl
         "Max retry times before give up when trying to reconnect to SHiP endpoints"  )
       ("ship-delay-second", boost::program_options::value<uint32_t>(),
         "Deply in seconds between each retry when trying to reconnect to SHiP endpoints"  )
-      ("ship-start-from-canonical-height", boost::program_options::value<int64_t>(),
+      ("ship-start-from-canonical-height", boost::program_options::value<uint64_t>(),
         "Override evm canonical head block to start syncing from"  )
    ;
 }
