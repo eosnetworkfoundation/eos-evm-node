@@ -1,11 +1,11 @@
 {
    "leap-dev":{
-      "target":"4",
-      "prerelease":false
+      "target":"5",
+      "prerelease":true
    },
    "leap":{
-      "target":"4",
-      "prerelease":false
+      "target":"5",
+      "prerelease":true
    },
    "cdt":{
       "target":"3.1.0",

@@ -110,45 +110,6 @@ jobs:
           push: true
           tags: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
           file: ${{fromJSON(needs.d.outputs.p)[matrix.platform].dockerfile}}
-
-  build:
-    name: EOS EVM Node Build
-    needs: [d, build-platforms]
-    if: always() && needs.d.result == 'success' && (needs.build-platforms.result == 'success' ||  needs.build-platforms.result == 'skipped')
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [ ubuntu22 ]
-    runs-on: ubuntu-latest
-    container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
-
-    steps:
-      - name: Authenticate
-        id: auth
-        uses: AntelopeIO/github-app-token-action@v1
-        with:
-          app_id: ${{ secrets.TRUSTEVM_CI_APP_ID }}
-          private_key: ${{ secrets.TRUSTEVM_CI_APP_KEY }}
-
-      - name: Checkout Repo
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-          submodules: 'recursive'
-          token: ${{ steps.auth.outputs.token }}
-
-      - name: Build EOS EVM Node
-        run: .github/workflows/build-node.sh
-        env:
-          CC: gcc-11
-          CXX: g++-11
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: build.tar.gz
-          path: build.tar.gz
-
   versions:
     name: Determine Versions
     runs-on: ubuntu-latest
@@ -206,6 +167,85 @@ jobs:
           if [[ "${{inputs.override-eos-evm-miner}}" != "" ]]; then
             echo eos-evm-miner-target=${{inputs.override-eos-evm-miner}} >> $GITHUB_OUTPUT
           fi
+        
+  build:
+    name: EOS EVM Node Build
+    needs: [d, build-platforms, versions]
+    if: always() && needs.d.result == 'success' && (needs.build-platforms.result == 'success' ||  needs.build-platforms.result == 'skipped')
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ ubuntu22 ]
+    runs-on: ubuntu-latest
+    container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
+
+    steps:
+      - name: Update Package Index & Upgrade Packages
+        run: |
+          apt-get update
+          apt-get upgrade -y
+          apt update
+          apt upgrade -y
+
+      - name: Download leap-dev binary
+        uses: AntelopeIO/asset-artifact-download-action@v3
+        with:
+          owner: AntelopeIO
+          repo: leap
+          target: '${{needs.versions.outputs.leap-dev-target}}'
+          prereleases: ${{fromJSON(needs.versions.outputs.leap-dev-prerelease)}}
+          file: 'leap-dev.*${{matrix.platform}}.*(x86_64|amd64).deb'
+          container-package: experimental-binaries
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - if: needs.versions.outputs.leap-target != 'DEFAULT' && (startsWith(needs.versions.outputs.leap-target, 3) || startsWith(needs.versions.outputs.leap-target, 4)) 
+        name: Download leap binary
+        uses: AntelopeIO/asset-artifact-download-action@v3
+        with:
+          owner: AntelopeIO
+          repo: leap
+          target: '${{needs.versions.outputs.leap-target}}'
+          prereleases: ${{fromJSON(needs.versions.outputs.leap-prerelease)}}
+          file: 'leap.*${{matrix.platform}}.*(x86_64|amd64).deb'
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - if: needs.versions.outputs.leap-target == 'DEFAULT' || !(startsWith(needs.versions.outputs.leap-target, 3) && startsWith(needs.versions.outputs.leap-target, 4)) 
+        name: Download Prev Leap Version
+        uses: AntelopeIO/asset-artifact-download-action@v3
+        with:
+          owner: AntelopeIO
+          repo: leap
+          target: '${{needs.versions.outputs.leap-target}}'
+          prereleases: ${{fromJSON(needs.versions.outputs.leap-prerelease)}}
+          file: 'leap.*amd64.deb'
+
+      - name: Install Leap
+        run: |
+          apt-get install -y ./leap*.deb
+      - name: Authenticate
+        id: auth
+        uses: AntelopeIO/github-app-token-action@v1
+        with:
+          app_id: ${{ secrets.TRUSTEVM_CI_APP_ID }}
+          private_key: ${{ secrets.TRUSTEVM_CI_APP_KEY }}
+
+      - name: Checkout Repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: 'recursive'
+          token: ${{ steps.auth.outputs.token }}
+
+      - name: Build EOS EVM Node
+        run: .github/workflows/build-node.sh
+        env:
+          CC: gcc-11
+          CXX: g++-11
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build.tar.gz
+          path: build.tar.gz
 
   integration-test:
     name: EOS EVM Integration Tests
@@ -250,11 +290,12 @@ jobs:
           repo: leap
           target: '${{needs.versions.outputs.leap-dev-target}}'
           prereleases: ${{fromJSON(needs.versions.outputs.leap-dev-prerelease)}}
-          file: 'leap-dev.*(x86_64|amd64).deb'
+          file: 'leap-dev.*${{matrix.platform}}.*(x86_64|amd64).deb'
           container-package: experimental-binaries
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download leap binary
+      - if: needs.versions.outputs.leap-target != 'DEFAULT' && (startsWith(needs.versions.outputs.leap-target, 3) || startsWith(needs.versions.outputs.leap-target, 4)) 
+        name: Download leap binary
         uses: AntelopeIO/asset-artifact-download-action@v3
         with:
           owner: AntelopeIO
@@ -263,6 +304,15 @@ jobs:
           prereleases: ${{fromJSON(needs.versions.outputs.leap-prerelease)}}
           file: 'leap.*${{matrix.platform}}.*(x86_64|amd64).deb'
           token: ${{ secrets.GITHUB_TOKEN }}
+      - if: needs.versions.outputs.leap-target == 'DEFAULT' || !(startsWith(needs.versions.outputs.leap-target, 3) && startsWith(needs.versions.outputs.leap-target, 4)) 
+        name: Download Prev Leap Version
+        uses: AntelopeIO/asset-artifact-download-action@v3
+        with:
+          owner: AntelopeIO
+          repo: leap
+          target: '${{needs.versions.outputs.leap-target}}'
+          prereleases: ${{fromJSON(needs.versions.outputs.leap-prerelease)}}
+          file: 'leap.*amd64.deb'
 
       - name: Install Leap
         run: |
