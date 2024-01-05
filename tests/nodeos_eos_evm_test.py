@@ -255,7 +255,7 @@ try:
     shipNodeNum = total_nodes - 1
     specificExtraNodeosArgs[shipNodeNum]="--plugin eosio::state_history_plugin --state-history-endpoint 127.0.0.1:8999 --trace-history --chain-state-history --disable-replay-opts  "
 
-    extraNodeosArgs="--contracts-console"
+    extraNodeosArgs="--contracts-console --resource-monitor-not-shutdown-on-threshold-exceeded"
 
     Print("Stand up cluster")
     if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, extraNodeosArgs=extraNodeosArgs, specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
@@ -902,17 +902,20 @@ try:
     cmdArr=shlex.split(cmd)
     evmRPCPOpen=Utils.delayedCheckOutput(cmdArr, stdout=outFile, stderr=errFile)
 
+    def validate_all_balances():
+        rows=prodNode.getTable(evmAcc.name, evmAcc.name, "account")
+        for row in rows['rows']:
+            Utils.Print("Checking 0x{0} balance".format(row['eth_address']))
+            r = -1
+            try:
+                r = w3.eth.get_balance(Web3.to_checksum_address('0x'+row['eth_address']))
+            except:
+                Utils.Print("ERROR - RPC endpoint not available - Exception thrown - Checking 0x{0} balance".format(row['eth_address']))
+                raise
+            assert r == int(row['balance'],16), f"{row['eth_address']} {r} != {int(row['balance'],16)}"
+
     # Validate all balances are the same on both sides
-    rows=prodNode.getTable(evmAcc.name, evmAcc.name, "account")
-    for row in rows['rows']:
-        Utils.Print("Checking 0x{0} balance".format(row['eth_address']))
-        r = -1
-        try:
-            r = w3.eth.get_balance(Web3.to_checksum_address('0x'+row['eth_address']))
-        except:
-            Utils.Print("ERROR - RPC endpoint not available - Exception thrown - Checking 0x{0} balance".format(row['eth_address']))
-            raise
-        assert r == int(row['balance'],16), f"{row['eth_address']} {r} != {int(row['balance'],16)}"
+    validate_all_balances()
 
     # Validate special signatures handling
     def get_stored_value(address):
@@ -922,6 +925,40 @@ try:
     assert(get_stored_value(accSpecialAdd[2:]) == 1) #pushtx
     assert(get_stored_value(makeReservedEvmAddress(convert_name_to_value(minerAcc.name))[2:]) == 1) #call
     assert(get_stored_value('0290ffefa58ee84a3641770ab910c48d3441752d') == 1) #admincall
+
+    def get_block(num):
+        result = processUrllibRequest("http://127.0.0.1:8881", payload={"method":"eth_getBlockByNumber","params":[num, False],"id":1,"jsonrpc":"2.0"})
+        return result["payload"]["result"]
+
+    Utils.Print("Verify evm_version==0")
+    # Verify header.nonce == 0 (evmversion=0)
+    b = get_block("latest")
+    assert(b["nonce"] == "0x0000000000000000")
+
+    # Switch to version 1
+    Utils.Print("Switch to evm_version 1")
+    actData = {"version":1}
+    trans = prodNode.pushMessage(evmAcc.name, "setversion", json.dumps(actData), '-p {0}'.format(evmAcc.name), silentErrors=True)
+    prodNode.waitForTransBlockIfNeeded(trans[1], True);
+    time.sleep(2)
+
+    # Transfer funds to trigger version change
+    prodNode.transferFunds(cluster.eosioAccount, evmAcc, "111.0000 EOS", "0xB106D2C286183FFC3D1F0C4A6f0753bB20B407c2", waitForTransBlock=True)
+    time.sleep(2)
+
+    Utils.Print("Verify evm_version==1")
+    # Verify header.nonce == 1 (evmversion=1)
+    b = get_block("latest")
+    assert(b["nonce"] == "0x0000000000000001")
+
+    Utils.Print("Transfer funds to trigger evmtx event on contract")
+    # Transfer funds (now using version=1)
+    prodNode.transferFunds(cluster.eosioAccount, evmAcc, "111.0000 EOS", "0xB106D2C286183FFC3D1F0C4A6f0753bB20B407c2", waitForTransBlock=True)
+    time.sleep(2)
+
+    Utils.Print("Validate all balances (check evmtx event processing)")
+    # Validate all balances (check evmtx event)
+    validate_all_balances()
 
     foundErr = False
     stdErrFile = open(nodeStdErrDir, "r")

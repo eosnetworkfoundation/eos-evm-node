@@ -5,6 +5,9 @@
 #include <silkworm/core/common/util.hpp>
 #include <silkworm/infra/common/log.hpp>
 
+static constexpr eosio::name pushtx_n = eosio::name("pushtx");
+static constexpr eosio::name evmtx_n = eosio::name("evmtx");
+
 namespace utils {
 
     inline std::string to_string(const eosio::checksum256& cs) {

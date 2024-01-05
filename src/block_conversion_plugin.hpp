@@ -10,8 +10,15 @@ struct pushtx {
    eosio::name          miner;
    std::vector<uint8_t> rlpx;
 };
-
 EOSIO_REFLECT(pushtx, miner, rlpx)
+
+struct evmtx_v0 {
+   uint64_t eos_evm_version;
+   std::vector<uint8_t> rlpx;
+};
+using evmtx_type = std::variant<evmtx_v0>;
+EOSIO_REFLECT(evmtx_v0, eos_evm_version, rlpx)
+
 class block_conversion_plugin : public appbase::plugin<block_conversion_plugin> {
    public:
       APPBASE_PLUGIN_REQUIRES((sys_plugin)(ship_receiver_plugin)(engine_plugin));
