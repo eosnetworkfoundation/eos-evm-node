@@ -152,6 +152,11 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
          return silkworm::db::read_canonical_header(txn, 0);
       }
 
+      std::optional<silkworm::ChainConfig> get_chain_config() {
+         silkworm::db::ROTxn txn(db_env);
+         return silkworm::db::read_chain_config(txn);
+      }
+
       silkworm::NodeSettings                          node_settings;
       silkworm::rpc::ServerSettings                   server_settings;
       mdbx::env_managed                               db_env;
@@ -217,6 +222,10 @@ std::optional<silkworm::Block> engine_plugin::get_head_block() {
 
 std::optional<silkworm::BlockHeader> engine_plugin::get_genesis_header() {
    return my->get_genesis_header();
+}
+
+std::optional<silkworm::ChainConfig> engine_plugin::get_chain_config() {
+   return my->get_chain_config();
 }
 
 silkworm::NodeSettings* engine_plugin::get_node_settings() {
