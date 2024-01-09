@@ -29,7 +29,7 @@ class ship_receiver_plugin_impl : std::enable_shared_from_this<ship_receiver_plu
       using native_block_t = channels::native_block;
       static constexpr eosio::name pushtx = eosio::name("pushtx");
 
-      void init(std::string h, std::string p, eosio::name ca, uint64_t input_start_height,
+      void init(std::string h, std::string p, eosio::name ca, const std::optional<uint64_t>& input_start_height,
                 uint32_t input_max_retry, uint32_t input_delay_second) {
          SILK_DEBUG << "ship_receiver_plugin_impl INIT";
          host = std::move(h);
@@ -352,12 +352,12 @@ class ship_receiver_plugin_impl : std::enable_shared_from_this<ship_receiver_plu
          }
          else {
             // Only take care of canonical header and input options when it's initial sync.
-            if (start_from_canonical_height != UINT64_MAX) {
+            if (start_from_canonical_height) {
                SILK_INFO << "Override head height with"
-                        << "#" << start_from_canonical_height;
+                        << "#" << *start_from_canonical_height;
             }
 
-            auto head_block = appbase::app().get_plugin<engine_plugin>().get_head_block(start_from_canonical_height);
+            auto head_block = appbase::app().get_plugin<engine_plugin>().get_canonical_block_at_height(start_from_canonical_height);
             if (!head_block) {
                sys::error("Unable to read canonical block");
                // No reset!
@@ -390,7 +390,7 @@ class ship_receiver_plugin_impl : std::enable_shared_from_this<ship_receiver_plu
          start_read();
       }
 
-   uint64_t get_start_from_canonical_height() {
+   const std::optional<uint64_t>& get_start_from_canonical_height() {
       return start_from_canonical_height;
    }
 
@@ -408,7 +408,7 @@ class ship_receiver_plugin_impl : std::enable_shared_from_this<ship_receiver_plu
       uint32_t                                        delay_second;
       uint32_t                                        max_retry;
       uint32_t                                        retry_count;
-      uint64_t                                        start_from_canonical_height;
+      std::optional<uint64_t>                         start_from_canonical_height;
 };
 
 ship_receiver_plugin::ship_receiver_plugin() : my(new ship_receiver_plugin_impl) {}
@@ -433,7 +433,7 @@ void ship_receiver_plugin::plugin_initialize( const appbase::variables_map& opti
    auto endpoint = options.at("ship-endpoint").as<std::string>();
    const auto& i = endpoint.find(":");
    auto core     = options.at("ship-core-account").as<std::string>();
-   uint64_t start_from_canonical_height = UINT64_MAX;
+   std::optional<uint64_t> start_from_canonical_height;
    uint32_t delay_second = 10;
    uint32_t max_retry = 0;
    if (options.contains("ship-start-from-block-id")) {
@@ -468,7 +468,7 @@ void ship_receiver_plugin::plugin_shutdown() {
    SILK_INFO << "Shutdown SHiP Receiver";
 }
 
-uint64_t ship_receiver_plugin::get_start_from_canonical_height() {
+const std::optional<uint64_t>& ship_receiver_plugin::get_start_from_canonical_height() {
    return my->get_start_from_canonical_height();
 }
 

@@ -46,8 +46,8 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
       }
 
       void load_head() {
-         uint64_t start_from_canonical_height = appbase::app().get_plugin<ship_receiver_plugin>().get_start_from_canonical_height();
-         auto head_block = appbase::app().get_plugin<engine_plugin>().get_head_block(start_from_canonical_height);
+         const std::optional<uint64_t>& start_from_canonical_height = appbase::app().get_plugin<ship_receiver_plugin>().get_start_from_canonical_height();
+         auto head_block = appbase::app().get_plugin<engine_plugin>().get_canonical_block_at_height(start_from_canonical_height);
          if (!head_block) {
             sys::error("Unable to read head block");
             return;
