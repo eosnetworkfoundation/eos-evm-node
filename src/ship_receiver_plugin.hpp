@@ -21,7 +21,7 @@ class ship_receiver_plugin : public appbase::plugin<ship_receiver_plugin> {
       void plugin_startup();
       void plugin_shutdown();
 
-      const std::optional<uint64_t>& get_start_from_canonical_height();
+      std::optional<uint64_t> get_start_from_canonical_height();
 
    private:
       std::unique_ptr<class ship_receiver_plugin_impl> my;

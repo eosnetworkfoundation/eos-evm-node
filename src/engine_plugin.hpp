@@ -22,7 +22,7 @@ class engine_plugin : public appbase::plugin<engine_plugin> {
       uint32_t    get_threads() const;
       std::string get_chain_data_dir() const;
       std::optional<silkworm::BlockHeader> get_head_canonical_header();
-      std::optional<silkworm::Block> get_canonical_block_at_height(const std::optional<uint64_t>& override_height);
+      std::optional<silkworm::Block> get_canonical_block_at_height(std::optional<uint64_t> height);
       std::optional<silkworm::BlockHeader> get_genesis_header();
 
    private:

@@ -29,7 +29,7 @@ class ship_receiver_plugin_impl : std::enable_shared_from_this<ship_receiver_plu
       using native_block_t = channels::native_block;
       static constexpr eosio::name pushtx = eosio::name("pushtx");
 
-      void init(std::string h, std::string p, eosio::name ca, const std::optional<uint64_t>& input_start_height,
+      void init(std::string h, std::string p, eosio::name ca, std::optional<uint64_t> input_start_height,
                 uint32_t input_max_retry, uint32_t input_delay_second) {
          SILK_DEBUG << "ship_receiver_plugin_impl INIT";
          host = std::move(h);
@@ -357,19 +357,19 @@ class ship_receiver_plugin_impl : std::enable_shared_from_this<ship_receiver_plu
                         << "#" << *start_from_canonical_height;
             }
 
-            auto head_block = appbase::app().get_plugin<engine_plugin>().get_canonical_block_at_height(start_from_canonical_height);
-            if (!head_block) {
+            auto start_block = appbase::app().get_plugin<engine_plugin>().get_canonical_block_at_height(start_from_canonical_height);
+            if (!start_block) {
                sys::error("Unable to read canonical block");
                // No reset!
                return;
             }
 
             SILK_INFO << "Get_head_canonical_header: "
-                     << "#" << head_block->header.number
-                     << ", hash:" << silkworm::to_hex(head_block->header.hash())
-                     << ", mixHash:" << silkworm::to_hex(head_block->header.prev_randao);
+                     << "#" << start_block->header.number
+                     << ", hash:" << silkworm::to_hex(start_block->header.hash())
+                     << ", mixHash:" << silkworm::to_hex(start_block->header.prev_randao);
 
-            start_from = utils::to_block_num(head_block->header.prev_randao.bytes) + 1;
+            start_from = utils::to_block_num(start_block->header.prev_randao.bytes) + 1;
             SILK_INFO << "Canonical header start from block: " << start_from;
             
          }
@@ -390,7 +390,7 @@ class ship_receiver_plugin_impl : std::enable_shared_from_this<ship_receiver_plu
          start_read();
       }
 
-   const std::optional<uint64_t>& get_start_from_canonical_height() {
+   std::optional<uint64_t> get_start_from_canonical_height() {
       return start_from_canonical_height;
    }
 
@@ -468,7 +468,7 @@ void ship_receiver_plugin::plugin_shutdown() {
    SILK_INFO << "Shutdown SHiP Receiver";
 }
 
-const std::optional<uint64_t>& ship_receiver_plugin::get_start_from_canonical_height() {
+std::optional<uint64_t> ship_receiver_plugin::get_start_from_canonical_height() {
    return my->get_start_from_canonical_height();
 }
 

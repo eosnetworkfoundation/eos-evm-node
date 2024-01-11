@@ -46,22 +46,22 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
       }
 
       void load_head() {
-         const std::optional<uint64_t>& start_from_canonical_height = appbase::app().get_plugin<ship_receiver_plugin>().get_start_from_canonical_height();
-         auto head_block = appbase::app().get_plugin<engine_plugin>().get_canonical_block_at_height(start_from_canonical_height);
-         if (!head_block) {
+         auto start_from_canonical_height = appbase::app().get_plugin<ship_receiver_plugin>().get_start_from_canonical_height();
+         auto start_block = appbase::app().get_plugin<engine_plugin>().get_canonical_block_at_height(start_from_canonical_height);
+         if (!start_block) {
             sys::error("Unable to read head block");
             return;
          }
-         SILK_INFO << "load_head: " << *head_block;
-         evm_blocks.push_back(*head_block);
+         SILK_INFO << "load_head: " << *start_block;
+         evm_blocks.push_back(*start_block);
 
          channels::native_block nb;
 
-         nb.id = eosio::checksum256(head_block->header.prev_randao.bytes);
-         nb.block_num = utils::to_block_num(head_block->header.prev_randao.bytes);
-         nb.timestamp = head_block->header.timestamp*1e6;
+         nb.id = eosio::checksum256(start_block->header.prev_randao.bytes);
+         nb.block_num = utils::to_block_num(start_block->header.prev_randao.bytes);
+         nb.timestamp = start_block->header.timestamp*1e6;
 
-         SILK_INFO << "Loaded native block: [" << head_block->header.number << "][" << nb.block_num << "],[" << nb.timestamp << "]";
+         SILK_INFO << "Loaded native block: [" << start_block->header.number << "][" << nb.block_num << "],[" << nb.timestamp << "]";
          native_blocks.push_back(nb);
 
          auto genesis_header = appbase::app().get_plugin<engine_plugin>().get_genesis_header();
