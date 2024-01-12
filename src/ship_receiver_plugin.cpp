@@ -436,11 +436,6 @@ void ship_receiver_plugin::plugin_initialize( const appbase::variables_map& opti
    std::optional<uint64_t> start_from_canonical_height;
    uint32_t delay_second = 10;
    uint32_t max_retry = 0;
-   if (options.contains("ship-start-from-block-id")) {
-      throw std::runtime_error("ship-start-from-block-id deprecated. Please use ship-start-from-canonical-height for similar functionality.");
-   } else if ( options.contains("ship-start-from-block-timestamp") ) {
-      throw std::runtime_error("ship-start-from-block-timestamp deprecated. Please use ship-start-from-canonical-height for similar functionality.");
-   }
 
    if (options.contains("ship-start-from-canonical-height")) {
       start_from_canonical_height = options.at("ship-start-from-canonical-height").as<uint64_t>();
