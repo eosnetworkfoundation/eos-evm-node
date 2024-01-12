@@ -422,6 +422,10 @@ void ship_receiver_plugin::set_program_options( appbase::options_description& cl
         "Account on the core blockchain that hosts the EOS EVM Contract")
       ("ship-max-retry", boost::program_options::value<uint32_t>(),
         "Max retry times before give up when trying to reconnect to SHiP endpoints"  )
+      ("ship-start-from-block-id", boost::program_options::value<std::string>(),
+        "[DEPRECATED] Override Antelope block id to start syncing from"  )
+      ("ship-start-from-block-timestamp", boost::program_options::value<int64_t>(),
+        "[DEPRECATED] Timestamp for the provided ship-start-from-block-id, required if block-id provided"  )
       ("ship-delay-second", boost::program_options::value<uint32_t>(),
         "Deply in seconds between each retry when trying to reconnect to SHiP endpoints"  )
       ("ship-start-from-canonical-height", boost::program_options::value<uint64_t>(),
