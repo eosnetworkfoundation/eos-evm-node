@@ -136,13 +136,22 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
          return silkworm::db::read_canonical_header(txn, head_num);
       }
 
-      std::optional<silkworm::Block> get_head_block() {
-         auto header = get_head_canonical_header();
-         if(!header) return {};
+      std::optional<silkworm::Block> get_canonical_block_at_height(std::optional<uint64_t> height) {
+         uint64_t target = 0;
+         if (!height) {
+            auto header = get_head_canonical_header();
+            if(!header) return {};
+            target = header->number;
+         }
+         else {
+            // Do not check canonical header.
+            // If there's anything wrong in that table, overriding here has some chance to fix it.
+            target = *height;
+         }
 
          silkworm::db::ROTxn txn(db_env);
          silkworm::Block block;
-         auto res = read_block_by_number(txn, header->number, false, block);
+         auto res = read_block_by_number(txn, target, false, block);
          if(!res) return {};
          return block;
       }
@@ -211,8 +220,8 @@ std::optional<silkworm::BlockHeader> engine_plugin::get_head_canonical_header() 
    return my->get_head_canonical_header();
 }
 
-std::optional<silkworm::Block> engine_plugin::get_head_block() {
-   return my->get_head_block();
+std::optional<silkworm::Block> engine_plugin::get_canonical_block_at_height(std::optional<uint64_t> height) {
+   return my->get_canonical_block_at_height(height);
 }
 
 std::optional<silkworm::BlockHeader> engine_plugin::get_genesis_header() {
