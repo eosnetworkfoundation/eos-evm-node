@@ -42,3 +42,4 @@ The following environment variables are available for configuration in the `.env
 - `MAX_LOGS_SUBS_PER_CONNECTION`: The maximum number of `logs`` subscriptions per connection.
 - `MAX_MINEDTX_SUBS_PER_CONNECTION`: The maximum number of `minedTransactions` subscriptions per connection.
 - `LOG_LEVEL`: Logging level (e.g., `debug`).
+- `GENESIS_JSON`: full file path of evm genesis.json, defaults to 'eos-evm-genesis.json'. For EOS EVM mainnet, you can download a copy of genesis.json from https://github.com/eosnetworkfoundation/evm-public-docs/blob/main/mainnet-genesis.json.
