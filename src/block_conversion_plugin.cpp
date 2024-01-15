@@ -293,9 +293,30 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                   }
 
                   // Remove irreversible evm blocks
+                  // The block at height evm_lib is actually irreversible as well.
+                  // We want to keep at least one irreversible block in the array to deal with forks.
                   while(evm_blocks.front().header.number < evm_lib) {
                      evm_blocks.pop_front();
                   }
+                  // The block at evm_lib should have already been irreversible and inserted.
+                  // So we should be able to recover from it.
+                  // 
+                  // There's one extreme case that we cannot recover: 
+                  // The block is irreversible but the chain db still have the wrong canonical branch. 
+                  // One possible case for this to happen is:
+                  // 1 We are in the wrong branch
+                  // 2 We then restart from an earlier irreverisble block
+                  // 3 Stop in the middle of the catchup process so that lib is written but the canonical branch is not updated yet. 
+                  // 4 Restart, the lib recored may not in the canonial chain.
+                  // It should be possible for this to happen since we process 5000 blocks together for irreversible blocks.
+                  // 
+                  // In this case, the "lib" block we start from will be a block in the "wrong" canonical chain. 
+                  // The first fetched block will then be rejected as it cannot link.
+                  // Checking the head block may help detecting such case. 
+                  // If the head block is not available for some reason, we cannot recover.
+                  // But the situation is rare and at least we will not recover into a wrong state.
+                  // We can always use the "ship-start-from-canonical-height" to manually recover.
+                  appbase::app().get_plugin<engine_plugin>().record_evm_lib(evm_lib);
                }
             }
          );

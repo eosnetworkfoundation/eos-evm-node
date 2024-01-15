@@ -139,13 +139,26 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
       std::optional<silkworm::Block> get_canonical_block_at_height(std::optional<uint64_t> height) {
          uint64_t target = 0;
          if (!height) {
-            auto header = get_head_canonical_header();
-            if(!header) return {};
-            target = header->number;
+            auto lib = get_evm_lib();
+           
+            if (lib) {
+               target = *lib;
+            }
+            else {
+               // no lib, might be the first run from an old db.
+               // Use the old logic.
+               auto header = get_head_canonical_header();
+               if (!header) {
+                  return {};
+               }
+               else {
+                  target = header->number;
+               }
+            }
          }
          else {
-            // Do not check canonical header.
-            // If there's anything wrong in that table, overriding here has some chance to fix it.
+            // Do not check canonical header or lib.
+            // If there's anything wrong, overriding here has some chance to fix it.
             target = *height;
          }
 
@@ -154,6 +167,17 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
          auto res = read_block_by_number(txn, target, false, block);
          if(!res) return {};
          return block;
+      }
+
+      void record_evm_lib(uint64_t height) {
+         silkworm::db::RWTxn txn(db_env);
+         write_runtime_states_u64(txn, height, silkworm::db::RuntimeState::kLibProcessed);
+         txn.commit();
+      }
+
+      std::optional<uint64_t> get_evm_lib() {
+         silkworm::db::ROTxn txn(db_env);
+         return read_runtime_states_u64(txn, silkworm::db::RuntimeState::kLibProcessed);
       }
 
       std::optional<silkworm::BlockHeader> get_genesis_header() {
@@ -222,6 +246,14 @@ std::optional<silkworm::BlockHeader> engine_plugin::get_head_canonical_header() 
 
 std::optional<silkworm::Block> engine_plugin::get_canonical_block_at_height(std::optional<uint64_t> height) {
    return my->get_canonical_block_at_height(height);
+}
+
+void engine_plugin::record_evm_lib(uint64_t height) {
+   return my->record_evm_lib(height);
+}
+
+std::optional<uint64_t> engine_plugin::get_evm_lib() {
+   return my->get_evm_lib();
 }
 
 std::optional<silkworm::BlockHeader> engine_plugin::get_genesis_header() {
