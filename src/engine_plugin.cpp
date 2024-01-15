@@ -138,25 +138,31 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
 
       std::optional<silkworm::Block> get_canonical_block_at_height(std::optional<uint64_t> height) {
          uint64_t target = 0;
+         SILK_INFO << "Determining effective canonical header.";
          if (!height) {
             auto lib = get_evm_lib();
             auto header = get_head_canonical_header();
             if (lib) {
+               SILK_INFO << "Stored LIB at: " << "#" << *lib;
                target = *lib;
                // Make sure we start from number smaller than or equal to head if possible.
                // But ignore the case where head is not avaiable
                if (header && target > header->number) {
                   target = header->number;
+                  SILK_INFO << "Canonical header is at lower height, set the target height to: " << "#" << target;
                }
             }
             else {
+               SILK_INFO << "Stored LIB not available.";
                // no lib, might be the first run from an old db.
                // Use the old logic.
                if (!header) {
+                  SILK_INFO << "Failed to read canonical header";
                   return {};
                }
                else {
                   target = header->number;
+                  SILK_INFO << "Canonical header at: " << "#" << target;
                }
             }
          }
@@ -164,6 +170,7 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
             // Do not check canonical header or lib.
             // If there's anything wrong, overriding here has some chance to fix it.
             target = *height;
+            SILK_INFO << "Command line options set the canonical height as " << "#" << target;
          }
 
          silkworm::db::ROTxn txn(db_env);
