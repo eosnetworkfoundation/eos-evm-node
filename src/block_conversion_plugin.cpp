@@ -312,10 +312,11 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                   // 
                   // In this case, the "lib" block we start from will be a block in the "wrong" canonical chain. 
                   // The first fetched block will then be rejected as it cannot link.
-                  // Checking the head block may help detecting such case. 
-                  // If the head block is not available for some reason, we cannot recover.
+                  // The only relatively easy way to protect against such case is checking whether the evm_lib is canonical here.
                   // But the situation is rare and at least we will not recover into a wrong state.
-                  // We can always use the "ship-start-from-canonical-height" to manually recover.
+                  // And we can always use the "ship-start-from-canonical-height" to manually recover.
+                  // So we decide we will not do the check for now.
+                  
                   appbase::app().get_plugin<engine_plugin>().record_evm_lib(evm_lib);
                }
             }

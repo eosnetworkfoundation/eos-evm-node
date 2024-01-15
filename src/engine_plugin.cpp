@@ -140,14 +140,18 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
          uint64_t target = 0;
          if (!height) {
             auto lib = get_evm_lib();
-           
+            auto header = get_head_canonical_header();
             if (lib) {
                target = *lib;
+               // Make sure we start from number smaller than or equal to head if possible.
+               // But ignore the case where head is not avaiable
+               if (header && target > header->number) {
+                  target = header->number;
+               }
             }
             else {
                // no lib, might be the first run from an old db.
                // Use the old logic.
-               auto header = get_head_canonical_header();
                if (!header) {
                   return {};
                }
