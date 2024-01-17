@@ -314,6 +314,8 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                   while(evm_blocks.front().header.number < evm_lib) {
                      evm_blocks.pop_front();
                   }
+                  SILK_INFO << "EVM Block Queue Size AFTER pruning: "
+                           << evm_blocks.size();
                   // The block at evm_lib should have already been irreversible and inserted.
                   // So we should be able to recover from it.
                   // 
