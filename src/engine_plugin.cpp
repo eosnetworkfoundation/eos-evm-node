@@ -82,10 +82,10 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
          db_env = silkworm::db::open_env(node_settings.chaindata_env_config);
          SILK_INFO << "Created DB environment at location : " << node_settings.data_directory->chaindata().path().string();
 
-         tx_ = silkworm::db::RWTxn(db_env);
-         silkworm::db::table::check_or_create_chaindata_tables(tx_);
+         silkworm::db::RWTxn txn(db_env);
+         silkworm::db::table::check_or_create_chaindata_tables(txn);
 
-         auto existing_config{silkworm::db::read_chain_config(tx_)};
+         auto existing_config{silkworm::db::read_chain_config(txn)};
          if (!existing_config.has_value()) {
             if(!genesis_json) {
                sys::error("Genesis state not provided");
@@ -99,15 +99,15 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
             }
 
             std::ifstream genesis_f(genesis_file);
-            silkworm::db::initialize_genesis(tx_, nlohmann::json::parse(genesis_f), /*allow_exceptions=*/true);
+            silkworm::db::initialize_genesis(txn, nlohmann::json::parse(genesis_f), /*allow_exceptions=*/true);
          }
 
-         tx_.commit();
-         node_settings.chain_config = silkworm::db::read_chain_config(tx_);
+         txn.commit();
+         node_settings.chain_config = silkworm::db::read_chain_config(txn);
          node_settings.network_id = node_settings.chain_config->chain_id;
 
          // Load genesis_hash
-         node_settings.chain_config->genesis_hash = silkworm::db::read_canonical_header_hash(tx_, 0);
+         node_settings.chain_config->genesis_hash = silkworm::db::read_canonical_header_hash(txn, 0);
          if (!node_settings.chain_config->genesis_hash.has_value())
                throw std::runtime_error("Could not load genesis hash");
 
@@ -183,8 +183,9 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
       void record_evm_lib(uint64_t height) {
          SILK_INFO << "Saving EVM LIB " << "#" << height;
          try {
-         write_runtime_states_u64(tx_, height, silkworm::db::RuntimeState::kLibProcessed);
-         tx_.commit();
+         silkworm::db::RWTxn txn(db_env);
+         write_runtime_states_u64(txn, height, silkworm::db::RuntimeState::kLibProcessed);
+         txn.commit_and_stop();
          }
          catch (const std::exception& e) {
             SILK_ERROR << "exception: " << e.what();
@@ -213,7 +214,6 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
       int                                             pid;
       std::thread::id                                 tid;
       std::optional<std::string>                      genesis_json;
-      silkworm::db::RWTxn                             tx_;
 };
 
 engine_plugin::engine_plugin() {}
