@@ -304,6 +304,13 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                   // Remove irreversible evm blocks
                   // The block at height evm_lib is actually irreversible as well.
                   // We want to keep at least one irreversible block in the array to deal with forks.
+                  SILK_INFO << "EVM Block Queue Size BEFORE pruning: "
+                           << evm_blocks.size();
+                  if (evm_blocks.size() > 0 ) {
+                     SILK_INFO << "EVM Block Queue Begin block: "
+                           << "#" << evm_blocks.begin()->header.number;
+                  }
+
                   while(evm_blocks.front().header.number < evm_lib) {
                      evm_blocks.pop_front();
                   }
