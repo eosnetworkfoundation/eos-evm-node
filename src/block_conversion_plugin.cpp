@@ -277,6 +277,14 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                set_upper_bound(curr, *new_block);
 
                // Calculate last irreversible EVM block
+               SILK_INFO << "Pruning native block queue according to lib in new block:"
+                        << "#" << new_block->lib;
+               SILK_INFO << "Size BEFORE pruning: "
+                         << native_blocks.size();
+               if (native_blocks.size() > 0 ) {
+                  SILK_INFO << "Begin block: "
+                         << "#" << native_blocks.begin()->block_num;
+               }
                std::optional<uint64_t> lib_timestamp;
                auto it = std::upper_bound(native_blocks.begin(), native_blocks.end(), new_block->lib, [](uint32_t lib, const auto& nb) { return lib < nb.block_num; });
                if(it != native_blocks.begin()) {
@@ -286,7 +294,8 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
 
                if( lib_timestamp ) {
                   auto evm_lib = timestamp_to_evm_block_num(*lib_timestamp) - 1;
-
+                  SILK_INFO << "Pruning according to EVM LIB: "
+                         << "#" << evm_lib;
                   // Remove irreversible native blocks
                   while(timestamp_to_evm_block_num(native_blocks.front().timestamp) < evm_lib) {
                      native_blocks.pop_front();
@@ -316,9 +325,15 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                   // But the situation is rare and at least we will not recover into a wrong state.
                   // And we can always use the "ship-start-from-canonical-height" to manually recover.
                   // So we decide we will not do the check for now.
-                  
+
                   appbase::app().get_plugin<engine_plugin>().record_evm_lib(evm_lib);
+
+                  SILK_INFO << "Stored EVM LIB: "
+                         << "#" << evm_lib;
+
                }
+               SILK_INFO << "Size AFTER pruning: "
+                         << native_blocks.size();
             }
          );
       }
