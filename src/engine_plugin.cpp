@@ -182,9 +182,18 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
 
       void record_evm_lib(uint64_t height) {
          SILK_INFO << "Saving EVM LIB " << "#" << height;
+         try {
          silkworm::db::RWTxn txn(db_env);
          write_runtime_states_u64(txn, height, silkworm::db::RuntimeState::kLibProcessed);
          txn.commit();
+         }
+         catch (const std::exception& e) {
+            SILK_ERROR << "exception: " << e.what();
+         }
+         catch(...) {
+            SILK_INFO << "Unknown exception";
+         }
+         SILK_INFO << "Finished EVM LIB " << "#" << height;
       }
 
       std::optional<uint64_t> get_evm_lib() {
