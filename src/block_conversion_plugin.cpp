@@ -3,6 +3,7 @@
 #include "abi_utils.hpp"
 #include "utils.hpp"
 #include <eosevm/block_mapping.hpp>
+#include <eosevm/version.hpp>
 
 #include <fstream>
 
@@ -111,15 +112,12 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
          uint64_t eos_evm_version = 0;
          if( last_evm_block.header.number == 0 ) {
             auto existing_config{appbase::app().get_plugin<engine_plugin>().get_chain_config()};
-            // TODO: Uncomment this when updating silkworm with the newest ChainConfig
-            // if(existing_config.has_value() && existing_config.value().version_.has_value())
-            //    eos_evm_version = existing_config.value().version_.value();
+            if(existing_config.has_value() && existing_config.value()._version.has_value())
+               eos_evm_version = existing_config.value()._version.value();
          } else {
-            eos_evm_version = silkworm::endian::load_big_u64(last_evm_block.header.nonce.data());
+            eos_evm_version = eosevm::nonce_to_version(last_evm_block.header.nonce);
          }
-         // TODO: Remove the call to silkworm::endian::store_big_u64 and pass eos_evm_version to prepare_block_header when updating silkworm
-         eosevm::prepare_block_header(new_block.header, bm.value(), evm_contract_name, last_evm_block.header.number+1);
-         silkworm::endian::store_big_u64(&new_block.header.nonce[0], eos_evm_version);
+         eosevm::prepare_block_header(new_block.header, bm.value(), evm_contract_name, last_evm_block.header.number+1, eos_evm_version);
 
          new_block.header.parent_hash = last_evm_block.header.hash();
          new_block.header.transactions_root = silkworm::kEmptyRoot;
