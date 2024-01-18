@@ -48,7 +48,7 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
       }
 
       std::optional<silkworm::BlockHeader> get_head_canonical_header() {
-         silkworm::db::ROTxn txn(db_env);
+         silkworm::db::ROTxn txn(*db_env);
          auto head_num = silkworm::db::stages::read_stage_progress(txn, silkworm::db::stages::kHeadersKey);
          return silkworm::db::read_canonical_header(txn, head_num);
       }
@@ -90,7 +90,7 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
             SILK_INFO << "Command line options set the canonical height as " << "#" << target;
          }
 
-         silkworm::db::ROTxn txn(db_env);
+         silkworm::db::ROTxn txn(*db_env);
          silkworm::Block block;
          auto res = read_block_by_number(txn, target, false, block);
          if(!res) return {};
@@ -100,7 +100,7 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
       void record_evm_lib(uint64_t height) {
          SILK_INFO << "Saving EVM LIB " << "#" << height;
          try {
-         silkworm::db::RWTxn txn(db_env);
+         silkworm::db::RWTxn txn(*db_env);
          write_runtime_states_u64(txn, height, silkworm::db::RuntimeState::kLibProcessed);
          txn.commit_and_stop();
          }
@@ -114,12 +114,12 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
       }
 
       std::optional<uint64_t> get_evm_lib() {
-         silkworm::db::ROTxn txn(db_env);
+         silkworm::db::ROTxn txn(*db_env);
          return read_runtime_states_u64(txn, silkworm::db::RuntimeState::kLibProcessed);
       }
 
       std::optional<silkworm::BlockHeader> get_genesis_header() {
-         silkworm::db::ROTxn txn(db_env);
+         silkworm::db::ROTxn txn(*db_env);
          return silkworm::db::read_canonical_header(txn, 0);
       }
 
@@ -227,8 +227,7 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
 
       inline void init() {
          SILK_DEBUG << "block_conversion_plugin_impl INIT";
-         auto node_settings = appbase::app().get_plugin<engine_plugin>().get_node_settings();
-         db_env = silkworm::db::open_env(node_settings->chaindata_env_config);
+         db_env = appbase::app().get_plugin<engine_plugin>().get_db();
          load_head();
          
          native_blocks_subscription = appbase::app().get_channel<channels::native_blocks>().subscribe(
@@ -441,7 +440,7 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
       channels::native_blocks::channel_type::handle native_blocks_subscription;
       std::optional<eosevm::block_mapping>          bm;
       uint64_t                                      evm_contract_name = 0;
-      mdbx::env_managed                             db_env;
+      mdbx::env                                     *db_env;
 };
 
 block_conversion_plugin::block_conversion_plugin() : my(new block_conversion_plugin_impl()) {}
