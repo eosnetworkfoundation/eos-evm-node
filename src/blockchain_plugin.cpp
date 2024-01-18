@@ -34,6 +34,8 @@ class blockchain_plugin_impl : std::enable_shared_from_this<blockchain_plugin_im
                   if(!(++block_count % 5000) || !new_block->irreversible) {
                      exec_engine->verify_chain(new_block->header.hash());
                      block_count=0;
+                     auto evm_lib = appbase::app().get_plugin<block_conversion_plugin>().get_evm_lib();
+                     appbase::app().get_plugin<engine_plugin>().record_evm_lib(evm_lib);
                   }
                } catch (const mdbx::exception& ex) {
                   sys::error("evm_blocks_subscription: mdbx::exception, " + std::string(ex.what()));

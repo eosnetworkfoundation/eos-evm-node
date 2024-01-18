@@ -37,6 +37,9 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
       block_conversion_plugin_impl()
         : evm_blocks_channel(appbase::app().get_channel<channels::evm_blocks>()){}
 
+      uint64_t get_evm_lib() {
+         return evm_lib;
+      }
 
       uint32_t timestamp_to_evm_block_num(uint64_t timestamp) const {
          if (timestamp < bm.value().genesis_timestamp) {
@@ -47,85 +50,9 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
          return bm->timestamp_to_evm_block_num(timestamp);
       }
 
-      std::optional<silkworm::BlockHeader> get_head_canonical_header() {
-         silkworm::db::ROTxn txn(*db_env);
-         auto head_num = silkworm::db::stages::read_stage_progress(txn, silkworm::db::stages::kHeadersKey);
-         return silkworm::db::read_canonical_header(txn, head_num);
-      }
-
-      std::optional<silkworm::Block> get_canonical_block_at_height(std::optional<uint64_t> height) {
-         uint64_t target = 0;
-         SILK_INFO << "Determining effective canonical header.";
-         if (!height) {
-            auto lib = get_evm_lib();
-            auto header = get_head_canonical_header();
-            if (lib) {
-               SILK_INFO << "Stored LIB at: " << "#" << *lib;
-               target = *lib;
-               // Make sure we start from number smaller than or equal to head if possible.
-               // But ignore the case where head is not avaiable
-               if (header && target > header->number) {
-                  target = header->number;
-                  SILK_INFO << "Canonical header is at lower height, set the target height to: " << "#" << target;
-               }
-            }
-            else {
-               SILK_INFO << "Stored LIB not available.";
-               // no lib, might be the first run from an old db.
-               // Use the old logic.
-               if (!header) {
-                  SILK_INFO << "Failed to read canonical header";
-                  return {};
-               }
-               else {
-                  target = header->number;
-                  SILK_INFO << "Canonical header at: " << "#" << target;
-               }
-            }
-         }
-         else {
-            // Do not check canonical header or lib.
-            // If there's anything wrong, overriding here has some chance to fix it.
-            target = *height;
-            SILK_INFO << "Command line options set the canonical height as " << "#" << target;
-         }
-
-         silkworm::db::ROTxn txn(*db_env);
-         silkworm::Block block;
-         auto res = read_block_by_number(txn, target, false, block);
-         if(!res) return {};
-         return block;
-      }
-
-      void record_evm_lib(uint64_t height) {
-         SILK_INFO << "Saving EVM LIB " << "#" << height;
-         try {
-         silkworm::db::RWTxn txn(*db_env);
-         write_runtime_states_u64(txn, height, silkworm::db::RuntimeState::kLibProcessed);
-         txn.commit_and_stop();
-         }
-         catch (const std::exception& e) {
-            SILK_ERROR << "exception: " << e.what();
-         }
-         catch(...) {
-            SILK_INFO << "Unknown exception";
-         }
-         SILK_INFO << "Finished EVM LIB " << "#" << height;
-      }
-
-      std::optional<uint64_t> get_evm_lib() {
-         silkworm::db::ROTxn txn(*db_env);
-         return read_runtime_states_u64(txn, silkworm::db::RuntimeState::kLibProcessed);
-      }
-
-      std::optional<silkworm::BlockHeader> get_genesis_header() {
-         silkworm::db::ROTxn txn(*db_env);
-         return silkworm::db::read_canonical_header(txn, 0);
-      }
-
       void load_head() {
          auto start_from_canonical_height = appbase::app().get_plugin<ship_receiver_plugin>().get_start_from_canonical_height();
-         auto start_block = get_canonical_block_at_height(start_from_canonical_height);
+         auto start_block = appbase::app().get_plugin<engine_plugin>().get_canonical_block_at_height(start_from_canonical_height);
          if (!start_block) {
             sys::error("Unable to read head block");
             return;
@@ -142,7 +69,7 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
          SILK_INFO << "Loaded native block: [" << start_block->header.number << "][" << nb.block_num << "],[" << nb.timestamp << "]";
          native_blocks.push_back(nb);
 
-         auto genesis_header = get_genesis_header();
+         auto genesis_header = appbase::app().get_plugin<engine_plugin>().get_genesis_header();
          if (!genesis_header) {
             sys::error("Unable to read genesis header");
             return;
@@ -227,7 +154,6 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
 
       inline void init() {
          SILK_DEBUG << "block_conversion_plugin_impl INIT";
-         db_env = appbase::app().get_plugin<engine_plugin>().get_db();
          load_head();
          
          native_blocks_subscription = appbase::app().get_channel<channels::native_blocks>().subscribe(
@@ -372,11 +298,11 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                }
 
                if( lib_timestamp ) {
-                  auto evm_lib = timestamp_to_evm_block_num(*lib_timestamp) - 1;
+                  auto local_evm_lib = timestamp_to_evm_block_num(*lib_timestamp) - 1;
                   SILK_INFO << "Pruning according to EVM LIB: "
-                         << "#" << evm_lib;
+                         << "#" << local_evm_lib;
                   // Remove irreversible native blocks
-                  while(timestamp_to_evm_block_num(native_blocks.front().timestamp) < evm_lib) {
+                  while(timestamp_to_evm_block_num(native_blocks.front().timestamp) < local_evm_lib) {
                      native_blocks.pop_front();
                   }
 
@@ -390,7 +316,7 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                            << "#" << evm_blocks.begin()->header.number;
                   }
 
-                  while(evm_blocks.front().header.number < evm_lib) {
+                  while(evm_blocks.front().header.number < local_evm_lib) {
                      evm_blocks.pop_front();
                   }
                   SILK_INFO << "EVM Block Queue Size AFTER pruning: "
@@ -414,7 +340,8 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                   // And we can always use the "ship-start-from-canonical-height" to manually recover.
                   // So we decide we will not do the check for now.
 
-                  record_evm_lib(evm_lib);
+                  // record_evm_lib(evm_lib);
+                  evm_lib = local_evm_lib;
 
                   SILK_INFO << "Stored EVM LIB: "
                          << "#" << evm_lib;
@@ -440,7 +367,7 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
       channels::native_blocks::channel_type::handle native_blocks_subscription;
       std::optional<eosevm::block_mapping>          bm;
       uint64_t                                      evm_contract_name = 0;
-      mdbx::env                                     *db_env;
+      uint64_t                                      evm_lib;
 };
 
 block_conversion_plugin::block_conversion_plugin() : my(new block_conversion_plugin_impl()) {}
@@ -461,4 +388,8 @@ void block_conversion_plugin::plugin_startup() {
 void block_conversion_plugin::plugin_shutdown() {
    my->shutdown();
    SILK_INFO << "Shutdown block_conversion plugin";
+}
+
+uint64_t block_conversion_plugin::get_evm_lib() {
+   return my->get_evm_lib();
 }

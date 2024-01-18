@@ -23,6 +23,7 @@ class block_conversion_plugin : public appbase::plugin<block_conversion_plugin> 
       void plugin_shutdown();
 
       uint32_t get_block_stride() const;
+      uint64_t get_evm_lib();
 
    private:
       std::unique_ptr<class block_conversion_plugin_impl> my;
