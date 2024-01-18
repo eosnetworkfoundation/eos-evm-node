@@ -322,8 +322,6 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                   //appbase::app().get_plugin<engine_plugin>().record_evm_lib(evm_lib);
                   evm_lib_ = evm_lib;
                }
-               SILK_INFO << "Size AFTER pruning: "
-                         << native_blocks.size();
             }
          );
       }
