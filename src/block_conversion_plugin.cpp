@@ -285,6 +285,7 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                }
 
                if( lib_timestamp ) {
+                  // Minus 1 to make sure the resulting block is a completed EVM block built from irreversible EOS blocks.
                   auto evm_lib = timestamp_to_evm_block_num(*lib_timestamp) - 1;
 
                   // Remove irreversible native blocks
@@ -300,26 +301,7 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                      evm_blocks.pop_front();
                   }
 
-                  // The block at evm_lib should have already been irreversible and inserted.
-                  // So we should be able to recover from it.
-                  // 
-                  // There's one extreme case that we cannot recover: 
-                  // The block is irreversible but the chain db still have the wrong canonical branch. 
-                  // One possible case for this to happen is:
-                  // 1 We are in the wrong branch
-                  // 2 We then restart from an earlier irreverisble block
-                  // 3 Stop in the middle of the catchup process so that lib is written but the canonical branch is not updated yet. 
-                  // 4 Restart, the lib recored may not in the canonial chain.
-                  // It should be possible for this to happen since we process 5000 blocks together for irreversible blocks.
-                  // 
-                  // In this case, the "lib" block we start from will be a block in the "wrong" canonical chain. 
-                  // The first fetched block will then be rejected as it cannot link.
-                  // The only relatively easy way to protect against such case is checking whether the evm_lib is canonical here.
-                  // But the situation is rare and at least we will not recover into a wrong state.
-                  // And we can always use the "ship-start-from-canonical-height" to manually recover.
-                  // So we decide we will not do the check for now.
-
-                  //appbase::app().get_plugin<engine_plugin>().record_evm_lib(evm_lib);
+                  // Record the height of this complete EVM block from irreversible EOS blocks.
                   evm_lib_ = evm_lib;
                }
             }

@@ -49,10 +49,20 @@ class blockchain_plugin_impl : std::enable_shared_from_this<blockchain_plugin_im
 
                   exec_engine->insert_block(new_block);
                   if(!(++block_count % 5000) || !new_block->irreversible) {
+                     // Get the last complete EVM block from irreversible EOS blocks.
+                     // The height is uint64_t so we can get it as a whole without worrying about atomicity.
+                     // Even some data races happen, it's fine in our scenario to read old data as starting from earlier blocks is always safer.
                      uint64_t evm_lib = appbase::app().get_plugin<block_conversion_plugin>().get_evm_lib();
-                     SILK_INFO << "Storing EVM Lib : " << "#" << evm_lib;
+                     SILK_INFO << "Storing EVM Lib: " << "#" << evm_lib;
+
+                     // Storing the EVM block height of the last complete block from irreversible EOS blocks.
+                     // We have to do this in this thread with the tx instance stored in exec_engine due to the lmitation of MDBX.
+                     // Note there's no need to commit here as the tx is borrowed. ExecutionEngine will manange the commits.
+                     // There's some other advantage to save this height in this way: 
+                     // If the system is shut down during catching up irreversible blocks, i.e. in the middle of the 5000 block run,
+                     // saving the height in this way can minimize the possibility having a stored height that is higher than the canonical header.
                      write_runtime_states_u64(exec_engine->get_tx(), evm_lib, silkworm::db::RuntimeState::kLibProcessed);
-                     
+
                      exec_engine->verify_chain(new_block->header.hash());
                      block_count=0;
                   }
