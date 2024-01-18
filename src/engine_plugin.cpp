@@ -1,4 +1,5 @@
 #include "engine_plugin.hpp"
+#include "blockchain_plugin.hpp"
 #include "channels.hpp"
 
 #include <filesystem>
@@ -183,9 +184,8 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
       void record_evm_lib(uint64_t height) {
          SILK_INFO << "Saving EVM LIB " << "#" << height;
          try {
-         silkworm::db::RWTxn txn(db_env);
+         auto& txn = appbase::app().get_plugin<blockchain_plugin>().get_tx();
          write_runtime_states_u64(txn, height, silkworm::db::RuntimeState::kLibProcessed);
-         txn.commit();
          }
          catch (const std::exception& e) {
             SILK_ERROR << "exception: " << e.what();

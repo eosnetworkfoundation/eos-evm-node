@@ -15,6 +15,7 @@ class blockchain_plugin : public appbase::plugin<blockchain_plugin> {
       void plugin_initialize(const appbase::variables_map& options);
       void plugin_startup();
       void plugin_shutdown();
+      silkworm::db::RWTxn& get_tx();
 
    private:
       std::unique_ptr<class blockchain_plugin_impl> my;

@@ -5,13 +5,30 @@
 #include <map>
 #include <string>
 
+#include <boost/asio/io_context.hpp>
+
 #include <silkworm/node/stagedsync/types.hpp>
 #include <silkworm/node/stagedsync/execution_engine.hpp>
+
+class ExecutionEngineEx : public silkworm::stagedsync::ExecutionEngine {
+   public :
+   
+   ExecutionEngineEx(boost::asio::io_context& io, silkworm::NodeSettings& settings, silkworm::db::RWAccess dba) : ExecutionEngine(io, settings, dba) {
+
+   }
+   silkworm::db::RWTxn& get_tx() {
+      return main_chain_.tx();
+   }
+};
 
 using sys = sys_plugin;
 class blockchain_plugin_impl : std::enable_shared_from_this<blockchain_plugin_impl> {
    public:
       blockchain_plugin_impl() = default;
+
+      silkworm::db::RWTxn& get_tx() {
+         return exec_engine->get_tx();
+      }
 
       inline void init() {
          SILK_DEBUG << "blockchain_plugin_impl INIT";
@@ -26,7 +43,7 @@ class blockchain_plugin_impl : std::enable_shared_from_this<blockchain_plugin_im
 
                   SILK_DEBUG << "EVM Block " << new_block->header.number;
                   if(!exec_engine) {
-                     exec_engine = std::make_unique<silkworm::stagedsync::ExecutionEngine>(appbase::app().get_io_context(), *node_settings, silkworm::db::RWAccess{*db_env});
+                     exec_engine = std::make_unique<ExecutionEngineEx>(appbase::app().get_io_context(), *node_settings, silkworm::db::RWAccess{*db_env});
                      exec_engine->open();
                   }
 
@@ -56,7 +73,7 @@ class blockchain_plugin_impl : std::enable_shared_from_this<blockchain_plugin_im
       silkworm::NodeSettings*                                 node_settings;
       mdbx::env*                                              db_env;
       channels::evm_blocks::channel_type::handle              evm_blocks_subscription;
-      std::unique_ptr<silkworm::stagedsync::ExecutionEngine>  exec_engine;
+      std::unique_ptr<ExecutionEngineEx>  exec_engine;
 };
 
 blockchain_plugin::blockchain_plugin() : my(new blockchain_plugin_impl()) {}
@@ -77,4 +94,8 @@ void blockchain_plugin::plugin_startup() {
 void blockchain_plugin::plugin_shutdown() {
    my->shutdown();
    SILK_INFO << "Shutdown Blockchain plugin";
+}
+
+silkworm::db::RWTxn& blockchain_plugin::get_tx() {
+   return my->get_tx();
 }
