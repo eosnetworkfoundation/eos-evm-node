@@ -141,7 +141,7 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
          uint64_t target = 0;
          SILK_INFO << "Determining effective canonical header.";
          if (!height) {
-            auto lib = get_evm_lib();
+            auto lib = get_stored_evm_lib();
             auto header = get_head_canonical_header();
             if (lib) {
                SILK_INFO << "Stored LIB at: " << "#" << *lib;
@@ -181,22 +181,7 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
          return block;
       }
 
-      void record_evm_lib(uint64_t height) {
-         SILK_INFO << "Saving EVM LIB " << "#" << height;
-         try {
-         auto& txn = appbase::app().get_plugin<blockchain_plugin>().get_tx();
-         write_runtime_states_u64(txn, height, silkworm::db::RuntimeState::kLibProcessed);
-         }
-         catch (const std::exception& e) {
-            SILK_ERROR << "exception: " << e.what();
-         }
-         catch(...) {
-            SILK_INFO << "Unknown exception";
-         }
-         SILK_INFO << "Finished EVM LIB " << "#" << height;
-      }
-
-      std::optional<uint64_t> get_evm_lib() {
+      std::optional<uint64_t> get_stored_evm_lib() {
          silkworm::db::ROTxn txn(db_env);
          return read_runtime_states_u64(txn, silkworm::db::RuntimeState::kLibProcessed);
       }
@@ -267,14 +252,6 @@ std::optional<silkworm::BlockHeader> engine_plugin::get_head_canonical_header() 
 
 std::optional<silkworm::Block> engine_plugin::get_canonical_block_at_height(std::optional<uint64_t> height) {
    return my->get_canonical_block_at_height(height);
-}
-
-void engine_plugin::record_evm_lib(uint64_t height) {
-   return my->record_evm_lib(height);
-}
-
-std::optional<uint64_t> engine_plugin::get_evm_lib() {
-   return my->get_evm_lib();
 }
 
 std::optional<silkworm::BlockHeader> engine_plugin::get_genesis_header() {

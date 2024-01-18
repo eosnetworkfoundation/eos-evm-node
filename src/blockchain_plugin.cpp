@@ -49,7 +49,10 @@ class blockchain_plugin_impl : std::enable_shared_from_this<blockchain_plugin_im
 
                   exec_engine->insert_block(new_block);
                   if(!(++block_count % 5000) || !new_block->irreversible) {
-                     write_runtime_states_u64(exec_engine->get_tx(), appbase::app().get_plugin<block_conversion_plugin>().get_evm_lib(), silkworm::db::RuntimeState::kLibProcessed);
+                     uint64_t evm_lib = appbase::app().get_plugin<block_conversion_plugin>().get_evm_lib();
+                     SILK_INFO << "Storing EVM Lib : " << "#" << evm_lib;
+                     write_runtime_states_u64(exec_engine->get_tx(), evm_lib, silkworm::db::RuntimeState::kLibProcessed);
+                     
                      exec_engine->verify_chain(new_block->header.hash());
                      block_count=0;
                   }

@@ -277,14 +277,6 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                set_upper_bound(curr, *new_block);
 
                // Calculate last irreversible EVM block
-               SILK_INFO << "Pruning native block queue according to lib in new block:"
-                        << "#" << new_block->lib;
-               SILK_INFO << "Size BEFORE pruning: "
-                         << native_blocks.size();
-               if (native_blocks.size() > 0 ) {
-                  SILK_INFO << "Begin block: "
-                         << "#" << native_blocks.begin()->block_num;
-               }
                std::optional<uint64_t> lib_timestamp;
                auto it = std::upper_bound(native_blocks.begin(), native_blocks.end(), new_block->lib, [](uint32_t lib, const auto& nb) { return lib < nb.block_num; });
                if(it != native_blocks.begin()) {
@@ -294,8 +286,7 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
 
                if( lib_timestamp ) {
                   auto evm_lib = timestamp_to_evm_block_num(*lib_timestamp) - 1;
-                  SILK_INFO << "Pruning according to EVM LIB: "
-                         << "#" << evm_lib;
+
                   // Remove irreversible native blocks
                   while(timestamp_to_evm_block_num(native_blocks.front().timestamp) < evm_lib) {
                      native_blocks.pop_front();
@@ -304,18 +295,11 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                   // Remove irreversible evm blocks
                   // The block at height evm_lib is actually irreversible as well.
                   // We want to keep at least one irreversible block in the array to deal with forks.
-                  SILK_INFO << "EVM Block Queue Size BEFORE pruning: "
-                           << evm_blocks.size();
-                  if (evm_blocks.size() > 0 ) {
-                     SILK_INFO << "EVM Block Queue Begin block: "
-                           << "#" << evm_blocks.begin()->header.number;
-                  }
 
                   while(evm_blocks.front().header.number < evm_lib) {
                      evm_blocks.pop_front();
                   }
-                  SILK_INFO << "EVM Block Queue Size AFTER pruning: "
-                           << evm_blocks.size();
+
                   // The block at evm_lib should have already been irreversible and inserted.
                   // So we should be able to recover from it.
                   // 
@@ -337,9 +321,6 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
 
                   //appbase::app().get_plugin<engine_plugin>().record_evm_lib(evm_lib);
                   evm_lib_ = evm_lib;
-                  SILK_INFO << "Stored EVM LIB: "
-                         << "#" << evm_lib;
-
                }
                SILK_INFO << "Size AFTER pruning: "
                          << native_blocks.size();

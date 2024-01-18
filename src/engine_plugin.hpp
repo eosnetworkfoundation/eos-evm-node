@@ -24,8 +24,6 @@ class engine_plugin : public appbase::plugin<engine_plugin> {
       std::optional<silkworm::BlockHeader> get_head_canonical_header();
       std::optional<silkworm::Block> get_canonical_block_at_height(std::optional<uint64_t> height);
       std::optional<silkworm::BlockHeader> get_genesis_header();
-      void record_evm_lib(uint64_t height);
-      std::optional<uint64_t> get_evm_lib();
 
    private:
       std::unique_ptr<class engine_plugin_impl> my;
