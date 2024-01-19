@@ -3,6 +3,7 @@
 #include "abi_utils.hpp"
 #include "utils.hpp"
 #include <eosevm/block_mapping.hpp>
+#include <eosevm/version.hpp>
 
 #include <fstream>
 
@@ -104,20 +105,20 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
          SILK_INFO << "internal_status(" << label << "): nb:" << native_blocks.size() << ", evmb:" << evm_blocks.size();
       }
 
-      silkworm::Block generate_new_evm_block(uint64_t num, const evmc::bytes32& parent_hash) {
+      silkworm::Block generate_new_evm_block(const silkworm::Block& last_evm_block) {
          silkworm::Block new_block;
-         eosevm::prepare_block_header(new_block.header, bm.value(), evm_contract_name, num);
-         new_block.header.parent_hash       = parent_hash;
+         uint64_t eos_evm_version = 0;
+         if( last_evm_block.header.number == 0 ) {
+            auto existing_config{appbase::app().get_plugin<engine_plugin>().get_chain_config()};
+            if(existing_config.has_value() && existing_config.value()._version.has_value())
+               eos_evm_version = existing_config.value()._version.value();
+         } else {
+            eos_evm_version = eosevm::nonce_to_version(last_evm_block.header.nonce);
+         }
+         eosevm::prepare_block_header(new_block.header, bm.value(), evm_contract_name, last_evm_block.header.number+1, eos_evm_version);
+
+         new_block.header.parent_hash = last_evm_block.header.hash();
          new_block.header.transactions_root = silkworm::kEmptyRoot;
-         //new_block.header.prev_randao
-         //new_block.header.nonce           
-         //new_block.header.ommers_hash;
-         //new_block.header.beneficiary;
-         //new_block.header.state_root;
-         //new_block.header.receipts_root;
-         //new_block.header.logs_bloom;
-         //new_block.header.gas_used;
-         //new_block.header.extra_data;
          return new_block;
       }
 
@@ -210,8 +211,9 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                         // Remove transactions in forked native block
                         SILK_WARN << "Removing transactions in forked native block  " << native_blocks.back();
                         for_each_reverse_action(native_blocks.back(), [this](const auto& act){
-                              auto dtx = deserialize_tx(act.data);
-                              auto txid_a = ethash::keccak256(dtx.rlpx.data(), dtx.rlpx.size());
+                              auto dtx = deserialize_tx(act);
+                              auto& rlpx_ref = std::visit([](auto&& arg) -> auto& { return arg.rlpx; }, dtx);
+                              auto txid_a = ethash::keccak256(rlpx_ref.data(), rlpx_ref.size());
 
                               silkworm::Bytes transaction_rlp{};
                               silkworm::rlp::encode(transaction_rlp, evm_blocks.back().transactions.back());
@@ -259,19 +261,37 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                   auto& last_evm_block = evm_blocks.back();
                   last_evm_block.header.transactions_root = compute_transaction_root(last_evm_block);
                   evm_blocks_channel.publish(80, std::make_shared<silkworm::Block>(last_evm_block));
-                  evm_blocks.push_back(generate_new_evm_block(last_evm_block.header.number+1, last_evm_block.header.hash()));
+                  evm_blocks.push_back(generate_new_evm_block(last_evm_block));
                }
 
                // Add transactions to the evm block
                auto& curr = evm_blocks.back();
-               for_each_action(*new_block, [this, &curr](const auto& act){
-                     auto dtx = deserialize_tx(act.data);
-                     silkworm::ByteView bv = {(const uint8_t*)dtx.rlpx.data(), dtx.rlpx.size()};
+               auto block_version = eosevm::nonce_to_version(curr.header.nonce);
+               for_each_action(*new_block, [this, &curr, &block_version](const auto& act){
+                     auto dtx = deserialize_tx(act);
+                     auto& rlpx_ref = std::visit([](auto&& arg) -> auto& { return arg.rlpx; }, dtx);
+
+                     silkworm::ByteView bv = {(const uint8_t*)rlpx_ref.data(), rlpx_ref.size()};
                      silkworm::Transaction evm_tx;
                      if (!silkworm::rlp::decode(bv, evm_tx)) {
                         SILK_CRIT << "Failed to decode transaction in block: " << curr.header.number;
                         throw std::runtime_error("Failed to decode transaction");
                      }
+                     auto tx_version = std::visit([](auto&& arg) -> auto { return arg.eos_evm_version; }, dtx);
+
+                     if(tx_version < block_version) {
+                        SILK_CRIT << "tx_version < block_version";
+                        throw std::runtime_error("tx_version < block_version");
+                     } else if (tx_version > block_version) {
+                        if(curr.transactions.empty()) {
+                           curr.header.nonce = eosevm::version_to_nonce(tx_version);
+                           block_version = tx_version;
+                        } else {
+                           SILK_CRIT << "tx_version > block_version";
+                           throw std::runtime_error("tx_version > block_version");
+                        }
+                     }
+
                      curr.transactions.emplace_back(std::move(evm_tx));
                });
                set_upper_bound(curr, *new_block);
@@ -301,10 +321,15 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
          );
       }
 
-      inline pushtx deserialize_tx(const std::vector<char>& d) const {
-         pushtx tx;
-         eosio::convert_from_bin(tx, d);
-         return tx;
+      inline evmtx_type deserialize_tx(const channels::native_action& na) const {
+         if( na.name == pushtx_n ) {
+            pushtx tx;
+            eosio::convert_from_bin(tx, na.data);
+            return evmtx_type{evmtx_v0{0, std::move(tx.rlpx)}};
+         }
+         evmtx_type evmtx;
+         eosio::convert_from_bin(evmtx, na.data);
+         return evmtx;
       }
 
       void shutdown() {}
