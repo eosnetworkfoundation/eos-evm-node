@@ -268,7 +268,7 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
 
                // Add transactions to the evm block
                auto& curr = evm_blocks.back();
-               auto block_version = silkworm::endian::load_big_u64(curr.header.nonce.data());
+               auto block_version = eosevm::nonce_to_version(curr.header.nonce);
                for_each_action(*new_block, [this, &curr, &block_version](const auto& act){
                      auto dtx = deserialize_tx(act);
                      auto& rlpx_ref = std::visit([](auto&& arg) -> auto& { return arg.rlpx; }, dtx);
@@ -286,7 +286,7 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                         throw std::runtime_error("tx_version < block_version");
                      } else if (tx_version > block_version) {
                         if(curr.transactions.empty()) {
-                           silkworm::endian::store_big_u64(&curr.header.nonce[0], tx_version);
+                           curr.header.nonce = eosevm::version_to_nonce(tx_version);
                            block_version = tx_version;
                         } else {
                            SILK_CRIT << "tx_version > block_version";
