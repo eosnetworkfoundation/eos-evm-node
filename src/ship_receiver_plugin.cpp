@@ -27,7 +27,6 @@ class ship_receiver_plugin_impl : std::enable_shared_from_this<ship_receiver_plu
 
       using block_result_t = eosio::ship_protocol::get_blocks_result_v0;
       using native_block_t = channels::native_block;
-      static constexpr eosio::name pushtx = eosio::name("pushtx");
 
       void init(std::string h, std::string p, eosio::name ca, std::optional<uint64_t> input_start_height,
                 uint32_t input_max_retry, uint32_t input_delay_second) {
@@ -194,10 +193,15 @@ class ship_receiver_plugin_impl : std::enable_shared_from_this<ship_receiver_plu
          channels::native_trx native_trx = {trace.id, trace.cpu_usage_us, trace.elapsed};
          const auto& actions = trace.action_traces;
          //SILK_DEBUG << "Appending transaction ";
+         auto it = std::find_if(actions.begin(), actions.end(), [&](const auto& act) -> bool {
+            return std::visit([&](const auto& a) { return a.receiver == core_account && a.act.name == evmtx_n; }, act);
+         });
+         auto action_to_search = it == actions.end() ? pushtx_n : evmtx_n;
+
          std::map<uint64_t, eosio::ship_protocol::action_trace> ordered_action_traces;
          for (std::size_t j = 0; j < actions.size(); ++j) {
             std::visit([&](auto& act) {
-               if (act.act.name == pushtx && core_account == act.receiver) {
+               if (act.act.name == action_to_search && core_account == act.receiver) {
                   if (!act.receipt.has_value()) {
                      SILK_ERROR << "action_trace does not have receipt";
                      throw std::runtime_error("action_trace does not have receipt");
@@ -221,8 +225,16 @@ class ship_receiver_plugin_impl : std::enable_shared_from_this<ship_receiver_plu
                      act.act.name,
                      std::vector<char>(act.act.data.pos, act.act.data.end)
                   };
+                  if(native_trx.actions.size() && native_trx.actions.back().name != action.name) {
+                     SILK_ERROR << "pushtx and evmtx found on the same transaction";
+                     throw std::runtime_error("pushtx and evmtx found on the same transaction");
+                  }
                   native_trx.actions.emplace_back(std::move(action));
                }, pair.second);
+            }
+            if(block.transactions.size() && block.transactions.back().actions.back().name != native_trx.actions.back().name) {
+               SILK_ERROR << "pushtx and evmtx found on the same block";
+               throw std::runtime_error("pushtx and evmtx found on the same block");
             }
             block.transactions.emplace_back(std::move(native_trx));
          }
