@@ -305,6 +305,7 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                }
 
                if( lib_timestamp ) {
+                  // Minus 1 to make sure the resulting block is a completed EVM block built from irreversible EOS blocks.
                   auto evm_lib = timestamp_to_evm_block_num(*lib_timestamp) - 1;
 
                   // Remove irreversible native blocks
@@ -313,9 +314,15 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                   }
 
                   // Remove irreversible evm blocks
+                  // The block at height evm_lib is actually irreversible as well.
+                  // We want to keep at least one irreversible block in the array to deal with forks.
+
                   while(evm_blocks.front().header.number < evm_lib) {
                      evm_blocks.pop_front();
                   }
+
+                  // Record the height of this complete EVM block from irreversible EOS blocks.
+                  evm_lib_ = evm_lib;
                }
             }
          );
@@ -332,6 +339,10 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
          return evmtx;
       }
 
+      uint64_t get_evm_lib() {
+         return evm_lib_;
+      }
+
       void shutdown() {}
 
       std::list<channels::native_block>             native_blocks;
@@ -340,6 +351,7 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
       channels::native_blocks::channel_type::handle native_blocks_subscription;
       std::optional<eosevm::block_mapping>          bm;
       uint64_t                                      evm_contract_name = 0;
+      uint64_t                                      evm_lib_;
 };
 
 block_conversion_plugin::block_conversion_plugin() : my(new block_conversion_plugin_impl()) {}
@@ -360,4 +372,8 @@ void block_conversion_plugin::plugin_startup() {
 void block_conversion_plugin::plugin_shutdown() {
    my->shutdown();
    SILK_INFO << "Shutdown block_conversion plugin";
+}
+
+uint64_t block_conversion_plugin::get_evm_lib() {
+   return my->get_evm_lib();
 }
