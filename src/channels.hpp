@@ -38,7 +38,17 @@ namespace channels {
       uint32_t                block_num = 0;
       int64_t                 timestamp = 0;
       uint32_t                lib = 0;
+      std::optional<native_action>  new_config = std::nullopt;
       std::vector<native_trx> transactions;
+   };
+
+   struct consensus_parameter_event {
+      intx::uint256 min_gas_fee = 0;
+      uint64_t gas_txnewaccount = 0;
+      uint64_t gas_newaccount = 0;
+      uint64_t gas_txcreate = 0;
+      uint64_t gas_codedeposit = 0;
+      uint64_t gas_sset = 0;
    };
    
    using native_blocks = appbase::channel_decl<struct native_blocks_tag, std::shared_ptr<native_block>>;
