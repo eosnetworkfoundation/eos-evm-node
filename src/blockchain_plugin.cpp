@@ -48,42 +48,28 @@ class blockchain_plugin_impl : std::enable_shared_from_this<blockchain_plugin_im
                   }
 
                   if (new_block->consensus_parameter_index && *new_block->consensus_parameter_index == new_block->header.number) {
-                     // New configs coming in.
-                     // 1. Save the new parameters.
+                     SILKWORM_ASSERT(new_block->consensus_parameters_cache.has_value());
                      update_consensus_parameters(exec_engine->get_tx(), new_block->header.number, *new_block->consensus_parameters_cache);
+                  }
+                  
+                  exec_engine->insert_block(new_block);
+                  if(!(++block_count % 5000) || !new_block->irreversible) {
+                     // Get the last complete EVM block from irreversible EOS blocks.
+                     // The height is uint64_t so we can get it as a whole without worrying about atomicity.
+                     // Even some data races happen, it's fine in our scenario to read old data as starting from earlier blocks is always safer.
+                     uint64_t evm_lib = appbase::app().get_plugin<block_conversion_plugin>().get_evm_lib();
+                     SILK_INFO << "Storing EVM Lib: " << "#" << evm_lib;
 
-                     // 2. Process all pending blocks with old parameters, this shall commit the new parameters together.
-                     exec_engine->verify_chain(new_block->header.parent_hash);
+                     // Storing the EVM block height of the last complete block from irreversible EOS blocks.
+                     // We have to do this in this thread with the tx instance stored in exec_engine due to the lmitation of MDBX.
+                     // Note there's no need to commit here as the tx is borrowed. ExecutionEngine will manange the commits.
+                     // There's some other advantage to save this height in this way: 
+                     // If the system is shut down during catching up irreversible blocks, i.e. in the middle of the 5000 block run,
+                     // saving the height in this way can minimize the possibility having a stored height that is higher than the canonical header.
+                     write_runtime_states_u64(exec_engine->get_tx(), evm_lib, silkworm::db::RuntimeState::kLibProcessed);
 
-                     // 3. insert new block, even we need the new parameters during the process (should not),
-                     //  we should have it in db and memory.
-                     exec_engine->insert_block(new_block);
-
-                     // 4. Proccess block immediatly so we could fail at once were there be any problems.
-                     // Maybe not necessary and can merge this to the code below.
                      exec_engine->verify_chain(new_block->header.hash());
                      block_count=0;
-                  }
-                  else {
-                     exec_engine->insert_block(new_block);
-                     if(!(++block_count % 5000) || !new_block->irreversible) {
-                        // Get the last complete EVM block from irreversible EOS blocks.
-                        // The height is uint64_t so we can get it as a whole without worrying about atomicity.
-                        // Even some data races happen, it's fine in our scenario to read old data as starting from earlier blocks is always safer.
-                        uint64_t evm_lib = appbase::app().get_plugin<block_conversion_plugin>().get_evm_lib();
-                        SILK_INFO << "Storing EVM Lib: " << "#" << evm_lib;
-
-                        // Storing the EVM block height of the last complete block from irreversible EOS blocks.
-                        // We have to do this in this thread with the tx instance stored in exec_engine due to the lmitation of MDBX.
-                        // Note there's no need to commit here as the tx is borrowed. ExecutionEngine will manange the commits.
-                        // There's some other advantage to save this height in this way: 
-                        // If the system is shut down during catching up irreversible blocks, i.e. in the middle of the 5000 block run,
-                        // saving the height in this way can minimize the possibility having a stored height that is higher than the canonical header.
-                        write_runtime_states_u64(exec_engine->get_tx(), evm_lib, silkworm::db::RuntimeState::kLibProcessed);
-
-                        exec_engine->verify_chain(new_block->header.hash());
-                        block_count=0;
-                     }
                   }
                } catch (const mdbx::exception& ex) {
                   sys::error("evm_blocks_subscription: mdbx::exception, " + std::string(ex.what()));
