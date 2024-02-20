@@ -16,7 +16,11 @@
 
 function(guess_conan_profile)
   if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
-    set(PROFILE linux_gcc_11_release)
+    if(CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "aarch64")
+      set(PROFILE linux_arm_gcc_11_release)
+    else()
+      set(PROFILE linux_gcc_11_release)
+    endif()
   elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
     if(CMAKE_OSX_ARCHITECTURES STREQUAL "arm64")
       set(PROFILE macos_arm_clang_13_release)
