@@ -14,9 +14,9 @@ set(CMAKE_TOOLCHAIN_FILE
 )
 endif()
 
-include(cmake/conan.cmake)
-
 project(eos-evm-node)
+
+include(cmake/conan.cmake)
 
 set(VERSION_MAJOR 0)
 set(VERSION_MINOR 7)
