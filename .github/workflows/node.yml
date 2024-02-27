@@ -262,7 +262,8 @@ jobs:
           repo: leap
           target: '${{needs.versions.outputs.leap-target}}'
           prereleases: ${{fromJSON(needs.versions.outputs.leap-prerelease)}}
-          file: 'leap.*ubuntu22\.04_amd64.deb'
+          file: 'leap_.*_amd64.deb'
+          artifact-name: leap-deb-amd64
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Leap
