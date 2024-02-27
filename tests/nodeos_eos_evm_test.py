@@ -68,8 +68,9 @@ appArgs.add(flag="--eos-evm-build-root", type=str, help="EOS EVM build dir", def
 appArgs.add(flag="--genesis-json", type=str, help="File to save generated genesis json", default="eos-evm-genesis.json")
 appArgs.add(flag="--use-miner", type=str, help="EOS EVM miner to use to send trx to nodeos", default=None)
 
-args=TestHelper.parse_args({"--dump-error-details","-v" }, applicationSpecificArgs=appArgs)
+args=TestHelper.parse_args({"--keep-logs","--dump-error-details","-v","--leave-running"}, applicationSpecificArgs=appArgs)
 debug=args.v
+killEosInstances= not args.leave_running
 dumpErrorDetails=args.dump_error_details
 eosEvmContractRoot=args.eos_evm_contract_root
 eosEvmBuildRoot=args.eos_evm_build_root
@@ -85,7 +86,7 @@ Utils.Debug=debug
 testSuccessful=False
 
 random.seed(seed) # Use a fixed seed for repeatability.
-cluster=Cluster(walletd=True)
+cluster=Cluster(keepRunning=args.leave_running, keepLogs=args.keep_logs)
 walletMgr=WalletMgr(True)
 
 pnodes=1
@@ -975,12 +976,13 @@ try:
     testSuccessful= not foundErr
 finally:
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
-    if evmNodePOpen is not None:
-        evmNodePOpen.kill()
-    if evmRPCPOpen is not None:
-        evmRPCPOpen.kill()
-    if eosEvmMinerPOpen is not None:
-        eosEvmMinerPOpen.kill()
+    if killEosInstances:
+        if evmNodePOpen is not None:
+            evmNodePOpen.kill()
+        if evmRPCPOpen is not None:
+            evmRPCPOpen.kill()
+        if eosEvmMinerPOpen is not None:
+            eosEvmMinerPOpen.kill()
         
 
 exitCode = 0 if testSuccessful else 1
