@@ -244,11 +244,6 @@ try:
 
     cluster.setWalletMgr(walletMgr)
 
-    cluster.killall(allInstances=killAll)
-    cluster.cleanup()
-    walletMgr.killall(allInstances=killAll)
-    walletMgr.cleanup()
-
     specificExtraNodeosArgs={}
     shipNodeNum = total_nodes - 1
     specificExtraNodeosArgs[shipNodeNum]="--plugin eosio::state_history_plugin --state-history-endpoint 127.0.0.1:8999 --trace-history --chain-state-history --disable-replay-opts  "
