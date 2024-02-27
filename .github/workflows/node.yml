@@ -255,16 +255,6 @@ jobs:
           artifact-name: leap-dev-ubuntu22-amd64
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download leap binary
-        uses: AntelopeIO/asset-artifact-download-action@v3
-        with:
-          owner: AntelopeIO
-          repo: leap
-          target: '${{needs.versions.outputs.leap-target}}'
-          prereleases: ${{fromJSON(needs.versions.outputs.leap-prerelease)}}
-          file: 'leap.*${{matrix.platform}}.*(x86_64|amd64).deb'
-          token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Install Leap
         run: |
           apt-get install -y ./leap*.deb
