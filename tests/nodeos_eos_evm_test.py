@@ -27,7 +27,7 @@ sys.path.append(os.path.join(os.getcwd(), "tests"))
 os.environ["CORE_SYMBOL_NAME"]='EOS'
 print(f"CORE_SYMBOL_NAME: {os.environ.get('CORE_SYMBOL_NAME')}")
 
-from TestHarness import Cluster, TestHelper, Utils, WalletMgr, CORE_SYMBOL
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr, CORE_SYMBOL, createAccountKeys
 from TestHarness.TestHelper import AppArgs
 from TestHarness.testUtils import ReturnType
 from TestHarness.testUtils import unhandledEnumType
@@ -263,7 +263,7 @@ try:
     prodNode = cluster.getNode(0)
     nonProdNode = cluster.getNode(1)
 
-    accounts=cluster.createAccountKeys(5)
+    accounts=createAccountKeys(5)
     if accounts is None:
         Utils.errorExit("FAILURE - create keys")
 
