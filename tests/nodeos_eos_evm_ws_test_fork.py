@@ -317,7 +317,8 @@ try:
     extraNodeosArgs="--contracts-console"
 
     Print("Stand up cluster")
-    if cluster.launch(prodCount=2, pnodes=2, topo="bridge", totalNodes=3, extraNodeosArgs=extraNodeosArgs, totalProducers=3, specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
+    time.sleep(5.0)
+    if cluster.launch(prodCount=2, pnodes=2, topo="bridge", totalNodes=3, extraNodeosArgs=extraNodeosArgs, totalProducers=3, specificExtraNodeosArgs=specificExtraNodeosArgs,delay=5) is False:
         errorExit("Failed to stand up eos cluster.")
 
     Print ("Wait for Cluster stabilization")
@@ -402,7 +403,7 @@ try:
     prodNode.processCleosCmd(cmd, cmd, silentErrors=True, returnType=ReturnType.raw)
     time.sleep(1.0)
 
-    trans = prodNode.pushMessage(evmAcc.name, "init", '{{"chainid":15555, "fee_params": {{"gas_price": "10000000000", "miner_cut": 100000, "ingress_bridge_fee": "0.0000 {0}"}}}}'.format(CORE_SYMBOL), '-p eosio.evm')
+    trans = prodNode.pushMessage(evmAcc.name, "init", '{{"chainid":15555, "fee_params": {{"gas_price": "10000000000", "miner_cut": 10000, "ingress_bridge_fee": "0.0000 {0}"}}}}'.format(CORE_SYMBOL), '-p eosio.evm')
     time.sleep(1.0)
 
     Utils.Print("EVM init action pushed:" + str(trans))
@@ -613,7 +614,7 @@ try:
 
     row0=prodNode.getTableRow(evmAcc.name, evmAcc.name, "balances", 0)
     Utils.Print("\tAfter transfer table row:", row0)
-    assert(row0["balance"]["balance"] == "1.0100 {0}".format(CORE_SYMBOL)) # should have fee at end of transaction
+    assert(row0["balance"]["balance"] == "1.0143 {0}".format(CORE_SYMBOL)) # should have fee at end of transaction
     testAccActualAmount=prodNode.getAccountEosBalanceStr(evmAcc.name)
     Utils.Print("\tEVM  Account balance %s" % testAccActualAmount)
     expectedAmount="60000097.5321 {0}".format(CORE_SYMBOL)
@@ -635,7 +636,7 @@ try:
     time.sleep(1.0)
     row0=prodNode.getTableRow(evmAcc.name, evmAcc.name, "balances", 0)
     Utils.Print("\tAfter transfer table row:", row0)
-    assert(row0["balance"]["balance"] == "1.0200 {0}".format(CORE_SYMBOL)) # should have fee from both transfers
+    assert(row0["balance"]["balance"] == "1.0243 {0}".format(CORE_SYMBOL)) # should have fee from both transfers
     evmAccActualAmount=prodNode.getAccountEosBalanceStr(evmAcc.name)
     Utils.Print("\tEVM  Account balance %s" % evmAccActualAmount)
     expectedAmount="60000107.5321 {0}".format(CORE_SYMBOL)
@@ -657,7 +658,7 @@ try:
     time.sleep(1.0)
     row0=prodNode.getTableRow(evmAcc.name, evmAcc.name, "balances", 0)
     Utils.Print("\tAfter transfer table row:", row0)
-    assert(row0["balance"]["balance"] == "1.0300 {0}".format(CORE_SYMBOL)) # should have fee from all three transfers
+    assert(row0["balance"]["balance"] == "1.0343 {0}".format(CORE_SYMBOL)) # should have fee from all three transfers
     evmAccActualAmount=prodNode.getAccountEosBalanceStr(evmAcc.name)
     Utils.Print("\tEVM  Account balance %s" % evmAccActualAmount)
     expectedAmount="60000149.9563 {0}".format(CORE_SYMBOL)
