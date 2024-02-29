@@ -28,7 +28,7 @@ sys.path.append(os.path.join(os.getcwd(), "tests"))
 os.environ["CORE_SYMBOL_NAME"]='EOS'
 print(f"CORE_SYMBOL_NAME: {os.environ.get('CORE_SYMBOL_NAME')}")
 
-from TestHarness import Cluster, TestHelper, Utils, WalletMgr, CORE_SYMBOL
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr, CORE_SYMBOL, createAccountKeys
 from TestHarness.TestHelper import AppArgs
 from TestHarness.testUtils import ReturnType
 from TestHarness.testUtils import unhandledEnumType
@@ -150,12 +150,11 @@ appArgs.add(flag="--eos-evm-contract-root", type=str, help="EOS EVM contract bui
 appArgs.add(flag="--eos-evm-build-root", type=str, help="EOS EVM build dir", default=None)
 appArgs.add(flag="--genesis-json", type=str, help="File to save generated genesis json", default="eos-evm-genesis.json")
 
-args=TestHelper.parse_args({"--keep-logs","--dump-error-details","-v","--leave-running","--clean-run" }, applicationSpecificArgs=appArgs)
+args=TestHelper.parse_args({"--keep-logs","--dump-error-details","-v","--leave-running" }, applicationSpecificArgs=appArgs)
 debug=args.v
 killEosInstances= not args.leave_running
 dumpErrorDetails=args.dump_error_details
 keepLogs=args.keep_logs
-killAll=False # args.clean_run
 eosEvmContractRoot=args.eos_evm_contract_root
 eosEvmBuildRoot=args.eos_evm_build_root
 genesisJson=args.genesis_json
@@ -175,7 +174,7 @@ Utils.Debug=debug
 testSuccessful=False
 
 random.seed(seed) # Use a fixed seed for repeatability.
-cluster=Cluster(walletd=True)
+cluster=Cluster(keepRunning=args.leave_running, keepLogs=args.keep_logs)
 walletMgr=WalletMgr(True)
 
 evmNodePOpen = None
@@ -309,13 +308,6 @@ try:
 
     cluster.setWalletMgr(walletMgr)
 
-    cluster.killall(allInstances=killAll)
-    # cluster.killSomeEosInstances(killCount=999) # used for main branch of leap
-    cluster.cleanup()
-    walletMgr.killall(allInstances=killAll) # leap 4.0?
-    # walletMgr.shutdown() # used for main branch of leap
-    walletMgr.cleanup()
-
     specificExtraNodeosArgs={}
     shipNodeNum = 0
     specificExtraNodeosArgs[shipNodeNum]="--plugin eosio::state_history_plugin --state-history-endpoint 127.0.0.1:8999 --trace-history --chain-state-history --disable-replay-opts  "
@@ -325,7 +317,7 @@ try:
     extraNodeosArgs="--contracts-console"
 
     Print("Stand up cluster")
-    if cluster.launch(prodCount=2, pnodes=2, topo="bridge", totalNodes=3, extraNodeosArgs=extraNodeosArgs, totalProducers=3, specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
+    if cluster.launch(prodCount=2, pnodes=2, topo="bridge", totalNodes=3, extraNodeosArgs=extraNodeosArgs, totalProducers=3, specificExtraNodeosArgs=specificExtraNodeosArgs,delay=5) is False:
         errorExit("Failed to stand up eos cluster.")
 
     Print ("Wait for Cluster stabilization")
@@ -363,7 +355,7 @@ try:
     cluster.waitOnClusterSync(blockAdvancing=5)
     cluster.biosNode.kill(signal.SIGTERM)
 
-    accounts=cluster.createAccountKeys(3)
+    accounts=createAccountKeys(3)
     if accounts is None:
         Utils.errorExit("FAILURE - create keys")
 
@@ -410,7 +402,7 @@ try:
     prodNode.processCleosCmd(cmd, cmd, silentErrors=True, returnType=ReturnType.raw)
     time.sleep(1.0)
 
-    trans = prodNode.pushMessage(evmAcc.name, "init", '{{"chainid":15555, "fee_params": {{"gas_price": "10000000000", "miner_cut": 100000, "ingress_bridge_fee": "0.0000 {0}"}}}}'.format(CORE_SYMBOL), '-p eosio.evm')
+    trans = prodNode.pushMessage(evmAcc.name, "init", '{{"chainid":15555, "fee_params": {{"gas_price": "10000000000", "miner_cut": 10000, "ingress_bridge_fee": "0.0000 {0}"}}}}'.format(CORE_SYMBOL), '-p eosio.evm')
     time.sleep(1.0)
 
     Utils.Print("EVM init action pushed:" + str(trans))
@@ -621,7 +613,7 @@ try:
 
     row0=prodNode.getTableRow(evmAcc.name, evmAcc.name, "balances", 0)
     Utils.Print("\tAfter transfer table row:", row0)
-    assert(row0["balance"]["balance"] == "1.0100 {0}".format(CORE_SYMBOL)) # should have fee at end of transaction
+    assert(row0["balance"]["balance"] == "1.0143 {0}".format(CORE_SYMBOL)) # should have fee at end of transaction
     testAccActualAmount=prodNode.getAccountEosBalanceStr(evmAcc.name)
     Utils.Print("\tEVM  Account balance %s" % testAccActualAmount)
     expectedAmount="60000097.5321 {0}".format(CORE_SYMBOL)
@@ -643,7 +635,7 @@ try:
     time.sleep(1.0)
     row0=prodNode.getTableRow(evmAcc.name, evmAcc.name, "balances", 0)
     Utils.Print("\tAfter transfer table row:", row0)
-    assert(row0["balance"]["balance"] == "1.0200 {0}".format(CORE_SYMBOL)) # should have fee from both transfers
+    assert(row0["balance"]["balance"] == "1.0243 {0}".format(CORE_SYMBOL)) # should have fee from both transfers
     evmAccActualAmount=prodNode.getAccountEosBalanceStr(evmAcc.name)
     Utils.Print("\tEVM  Account balance %s" % evmAccActualAmount)
     expectedAmount="60000107.5321 {0}".format(CORE_SYMBOL)
@@ -665,7 +657,7 @@ try:
     time.sleep(1.0)
     row0=prodNode.getTableRow(evmAcc.name, evmAcc.name, "balances", 0)
     Utils.Print("\tAfter transfer table row:", row0)
-    assert(row0["balance"]["balance"] == "1.0300 {0}".format(CORE_SYMBOL)) # should have fee from all three transfers
+    assert(row0["balance"]["balance"] == "1.0343 {0}".format(CORE_SYMBOL)) # should have fee from all three transfers
     evmAccActualAmount=prodNode.getAccountEosBalanceStr(evmAcc.name)
     Utils.Print("\tEVM  Account balance %s" % evmAccActualAmount)
     expectedAmount="60000149.9563 {0}".format(CORE_SYMBOL)
