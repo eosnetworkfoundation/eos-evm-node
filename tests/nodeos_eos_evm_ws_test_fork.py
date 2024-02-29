@@ -317,7 +317,6 @@ try:
     extraNodeosArgs="--contracts-console"
 
     Print("Stand up cluster")
-    time.sleep(5.0)
     if cluster.launch(prodCount=2, pnodes=2, topo="bridge", totalNodes=3, extraNodeosArgs=extraNodeosArgs, totalProducers=3, specificExtraNodeosArgs=specificExtraNodeosArgs,delay=5) is False:
         errorExit("Failed to stand up eos cluster.")
 

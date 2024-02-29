@@ -251,7 +251,6 @@ try:
     extraNodeosArgs="--contracts-console --resource-monitor-not-shutdown-on-threshold-exceeded"
 
     Print("Stand up cluster")
-    time.sleep(5.0)
     if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, extraNodeosArgs=extraNodeosArgs, specificExtraNodeosArgs=specificExtraNodeosArgs,delay=5) is False:
         errorExit("Failed to stand up eos cluster.")
 
