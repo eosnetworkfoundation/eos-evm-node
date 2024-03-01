@@ -19,16 +19,21 @@ struct evmtx_v0 {
 using evmtx_type = std::variant<evmtx_v0>;
 EOSIO_REFLECT(evmtx_v0, eos_evm_version, rlpx)
 
-struct gas_parameter_data_v1 {
-    uint64_t minimum_gas_price = 0;
+struct gas_parameter_type {
     uint64_t gas_txnewaccount = 0;
     uint64_t gas_newaccount = 25000;
     uint64_t gas_txcreate = 32000;
     uint64_t gas_codedeposit = 200;
     uint64_t gas_sset = 20000;
 };
-using gas_parameter_data_type = std::variant<gas_parameter_data_v1>;
-EOSIO_REFLECT(gas_parameter_data_v1, minimum_gas_price, gas_txnewaccount, gas_newaccount, gas_txcreate, gas_codedeposit, gas_sset)
+EOSIO_REFLECT(gas_parameter_type, gas_txnewaccount, gas_newaccount, gas_txcreate, gas_codedeposit, gas_sset)
+
+struct consensus_parameter_data_v0 {
+    uint64_t                   minimum_gas_price = 0;
+    gas_parameter_type         gas_parameter;
+};
+using consensus_parameter_data_type = std::variant<consensus_parameter_data_v0>;
+EOSIO_REFLECT(consensus_parameter_data_v0, minimum_gas_price, gas_parameter)
 
 class block_conversion_plugin : public appbase::plugin<block_conversion_plugin> {
    public:

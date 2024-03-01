@@ -41,15 +41,6 @@ namespace channels {
       std::optional<native_action>  new_config = std::nullopt;
       std::vector<native_trx> transactions;
    };
-
-   struct consensus_parameter_event {
-      intx::uint256 min_gas_fee = 0;
-      uint64_t gas_txnewaccount = 0;
-      uint64_t gas_newaccount = 0;
-      uint64_t gas_txcreate = 0;
-      uint64_t gas_codedeposit = 0;
-      uint64_t gas_sset = 0;
-   };
    
    using native_blocks = appbase::channel_decl<struct native_blocks_tag, std::shared_ptr<native_block>>;
    using evm_blocks = appbase::channel_decl<struct evm_blocks_tag, std::shared_ptr<silkworm::Block>>;

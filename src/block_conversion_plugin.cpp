@@ -279,11 +279,11 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                   curr.consensus_parameters_cache.emplace(eosevm::ConsensusParameters {
                      .min_gas_price = std::visit([](auto&& arg) -> auto& { return arg.minimum_gas_price; }, new_config),
                      .gas_fee_parameters = eosevm::GasFeeParameters {
-                        .gas_txnewaccount = std::visit([](auto&& arg) -> auto& { return arg.gas_txnewaccount; }, new_config),
-                        .gas_newaccount = std::visit([](auto&& arg) -> auto& { return arg.gas_newaccount; }, new_config),
-                        .gas_txcreate = std::visit([](auto&& arg) -> auto& { return arg.gas_txcreate; }, new_config),
-                        .gas_codedeposit = std::visit([](auto&& arg) -> auto& { return arg.gas_codedeposit; }, new_config),
-                        .gas_sset = std::visit([](auto&& arg) -> auto& { return arg.gas_sset; }, new_config),
+                        .gas_txnewaccount = std::visit([](auto&& arg) -> auto& { return arg.gas_parameter.gas_txnewaccount; }, new_config),
+                        .gas_newaccount = std::visit([](auto&& arg) -> auto& { return arg.gas_parameter.gas_newaccount; }, new_config),
+                        .gas_txcreate = std::visit([](auto&& arg) -> auto& { return arg.gas_parameter.gas_txcreate; }, new_config),
+                        .gas_codedeposit = std::visit([](auto&& arg) -> auto& { return arg.gas_parameter.gas_codedeposit; }, new_config),
+                        .gas_sset = std::visit([](auto&& arg) -> auto& { return arg.gas_parameter.gas_sset; }, new_config),
                      }
                   });
                   curr.consensus_parameter_index = curr.header.number;
@@ -361,8 +361,8 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
          return evmtx;
       }
 
-      inline gas_parameter_data_type deserialize_config(const channels::native_action& na) const {
-         gas_parameter_data_type new_configs;
+      inline consensus_parameter_data_type deserialize_config(const channels::native_action& na) const {
+         consensus_parameter_data_type new_configs;
          eosio::convert_from_bin(new_configs, na.data);
          return new_configs;
       }
