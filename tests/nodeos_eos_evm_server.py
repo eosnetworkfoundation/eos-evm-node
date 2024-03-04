@@ -20,7 +20,7 @@ from binascii import unhexlify
 sys.path.append(os.getcwd())
 sys.path.append(os.path.join(os.getcwd(), "tests"))
 
-from TestHarness import Cluster, TestHelper, Utils, WalletMgr
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr, createAccountKeys
 from TestHarness.TestHelper import AppArgs
 from TestHarness.testUtils import ReturnType
 from TestHarness.core_symbol import CORE_SYMBOL
@@ -70,12 +70,11 @@ appArgs.add(flag="--genesis-json", type=str, help="File to save generated genesi
 appArgs.add(flag="--read-endpoint", type=str, help="EVM read endpoint (eos-evm-rpc)", default="http://localhost:8881")
 appArgs.add(flag="--use-eos-vm-oc", type=bool, help="EOS EVM Contract build dir", default=False)
 
-args=TestHelper.parse_args({"--keep-logs","--dump-error-details","-v","--leave-running","--clean-run" }, applicationSpecificArgs=appArgs)
+args=TestHelper.parse_args({"--keep-logs","--dump-error-details","-v","--leave-running" }, applicationSpecificArgs=appArgs)
 debug=args.v
 killEosInstances= not args.leave_running
 dumpErrorDetails=args.dump_error_details
 keepLogs=args.keep_logs
-killAll=args.clean_run
 eosEvmContractRoot=args.eos_evm_contract_root
 eosEvmBridgeContractsRoot=args.eos_evm_bridge_contracts_root
 gensisJson=args.genesis_json
@@ -94,7 +93,7 @@ Utils.Debug=debug
 testSuccessful=False
 
 random.seed(seed) # Use a fixed seed for repeatability.
-cluster=Cluster(walletd=True)
+cluster=Cluster(keepRunning=args.leave_running, keepLogs=args.keep_logs)
 walletMgr=WalletMgr(True)
 
 
@@ -102,10 +101,6 @@ try:
     TestHelper.printSystemInfo("BEGIN")
 
     cluster.setWalletMgr(walletMgr)
-    cluster.killall(allInstances=killAll)
-    cluster.cleanup()
-    walletMgr.killall(allInstances=killAll)
-    walletMgr.cleanup()
 
     # ***   setup topogrophy   ***
 
@@ -146,7 +141,7 @@ try:
     if eosEvmBridgeContractsRoot:
         total_accounts_to_create += 3
 
-    accounts=cluster.createAccountKeys(total_accounts_to_create)
+    accounts=createAccountKeys(total_accounts_to_create)
     if accounts is None:
         Utils.errorExit("FAILURE - create keys")
 
@@ -497,7 +492,7 @@ try:
     app.run(host='0.0.0.0', port=5000)
 
 finally:
-    TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=killEosInstances, killWallet=killEosInstances, keepLogs=keepLogs, cleanRun=killAll, dumpErrorDetails=dumpErrorDetails)
+    TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
 
 exitCode = 0 if testSuccessful else 1
 exit(exitCode)
