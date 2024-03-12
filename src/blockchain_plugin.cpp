@@ -61,7 +61,7 @@ class blockchain_plugin_impl : std::enable_shared_from_this<blockchain_plugin_im
                      // There's some other advantage to save this height in this way: 
                      // If the system is shut down during catching up irreversible blocks, i.e. in the middle of the 5000 block run,
                      // saving the height in this way can minimize the possibility having a stored height that is higher than the canonical header.
-                     write_runtime_states_u64(exec_engine->get_tx(), evm_lib, silkworm::db::RuntimeState::kLibProcessed);
+                     write_runtime_states_u64(exec_engine->get_tx(), silkworm::db::RuntimeState::kLibProcessed, evm_lib);
 
                      exec_engine->verify_chain(new_block->header.hash());
                      block_count=0;
