@@ -1,4 +1,5 @@
 #include "block_conversion_plugin.hpp"
+#include "blockchain_plugin.hpp"
 #include "channels.hpp"
 #include "abi_utils.hpp"
 #include "utils.hpp"
@@ -11,6 +12,7 @@
 #include <silkworm/core/types/transaction.hpp>
 #include <silkworm/core/trie/vector_root.hpp>
 #include <silkworm/core/common/endian.hpp>
+#include <silkworm/node/db/access_layer.hpp>
 
 using sys = sys_plugin;
 
@@ -276,7 +278,7 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                      throw std::runtime_error("new config comes in the middle of an evm block");
                   }
                   auto new_config = deserialize_config(new_block->new_config.value());
-                  curr.consensus_parameters_cache.emplace(eosevm::ConsensusParameters {
+                  auto consensus_param = eosevm::ConsensusParameters {
                      .min_gas_price = std::visit([](auto&& arg) -> auto& { return arg.minimum_gas_price; }, new_config),
                      .gas_fee_parameters = eosevm::GasFeeParameters {
                         .gas_txnewaccount = std::visit([](auto&& arg) -> auto& { return arg.gas_parameter.gas_txnewaccount; }, new_config),
@@ -285,8 +287,10 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                         .gas_codedeposit = std::visit([](auto&& arg) -> auto& { return arg.gas_parameter.gas_codedeposit; }, new_config),
                         .gas_sset = std::visit([](auto&& arg) -> auto& { return arg.gas_parameter.gas_sset; }, new_config),
                      }
-                  });
+                  };
                   curr.consensus_parameter_index = curr.header.number;
+
+                  silkworm::db::update_consensus_parameters(appbase::app().get_plugin<blockchain_plugin>().get_tx(), curr.header.number, consensus_param);
                }
 
                for_each_action(*new_block, [this, &curr, &block_version](const auto& act){

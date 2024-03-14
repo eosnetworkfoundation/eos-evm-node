@@ -46,35 +46,6 @@ class blockchain_plugin_impl : std::enable_shared_from_this<blockchain_plugin_im
                      exec_engine = std::make_unique<ExecutionEngineEx>(appbase::app().get_io_context(), *node_settings, silkworm::db::RWAccess{*db_env});
                      exec_engine->open();
                   }
-
-                  if (new_block->consensus_parameter_index) {
-                     if (*new_block->consensus_parameter_index == new_block->header.number) {
-                        // Parameters updated in this block.
-                        SILKWORM_ASSERT(new_block->consensus_parameters_cache.has_value());
-                        update_consensus_parameters(exec_engine->get_tx(), new_block->header.number, *new_block->consensus_parameters_cache);
-                        last_consensus_parameters = new_block->consensus_parameters_cache;
-                        last_consensus_parameters_index = new_block->consensus_parameter_index;
-                     }
-                     else if (last_consensus_parameters_index && *last_consensus_parameters_index == *new_block->consensus_parameter_index) {
-                        // Copy over parameters for last block.
-                        SILKWORM_ASSERT(last_consensus_parameters.has_value());
-                        new_block->consensus_parameters_cache = last_consensus_parameters;
-                     } else {
-                        // Parameter not cached, happen during startup or fork.
-                        new_block->consensus_parameters_cache = read_consensus_parameters(exec_engine->get_tx(), *new_block->consensus_parameter_index);
-                        // In such cases, the parameter MUST be in db.
-                        SILKWORM_ASSERT(new_block->consensus_parameters_cache.has_value());
-
-                        last_consensus_parameters_index = new_block->consensus_parameter_index;
-                        last_consensus_parameters = new_block->consensus_parameters_cache;
-                     }  
-                  }
-                  else {
-                     // Should only reach here if fork happens during version update.
-                     // TODO: Add guards according to eosevm versions.
-                     last_consensus_parameters_index = std::nullopt;
-                     last_consensus_parameters = std::nullopt;
-                  }
                   
                   exec_engine->insert_block(new_block);
                   if(!(++block_count % 5000) || !new_block->irreversible) {
@@ -117,8 +88,6 @@ class blockchain_plugin_impl : std::enable_shared_from_this<blockchain_plugin_im
       mdbx::env*                                              db_env;
       channels::evm_blocks::channel_type::handle              evm_blocks_subscription;
       std::unique_ptr<ExecutionEngineEx>  exec_engine;
-      std::optional<silkworm::BlockNum>                       last_consensus_parameters_index;
-      std::optional<eosevm::ConsensusParameters>              last_consensus_parameters;
 };
 
 blockchain_plugin::blockchain_plugin() : my(new blockchain_plugin_impl()) {}
