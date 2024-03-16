@@ -288,9 +288,9 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                         .gas_sset = std::visit([](auto&& arg) -> auto& { return arg.gas_parameter.gas_sset; }, new_config),
                      }
                   };
-                  curr.consensus_parameter_index = curr.header.number;
+                  curr.consensus_parameter_index = consensus_param.hash();
 
-                  silkworm::db::update_consensus_parameters(appbase::app().get_plugin<blockchain_plugin>().get_tx(), curr.header.number, consensus_param);
+                  silkworm::db::update_consensus_parameters(appbase::app().get_plugin<blockchain_plugin>().get_tx(), *curr.consensus_parameter_index, consensus_param);
                }
 
                for_each_action(*new_block, [this, &curr, &block_version](const auto& act){
