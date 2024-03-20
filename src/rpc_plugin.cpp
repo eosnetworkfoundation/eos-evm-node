@@ -28,8 +28,6 @@ void rpc_plugin::set_program_options( appbase::options_description& cli, appbase
    cfg.add_options()
       ("http-port", boost::program_options::value<std::string>()->default_value(silkworm::kDefaultEth1EndPoint),
         "http port for JSON RPC of the form <address>:<port>")    
-      ("rpc-engine-port", boost::program_options::value<std::string>()->default_value(silkworm::kDefaultEngineEndPoint),
-        "engine port for JSON RPC of the form <address>:<port>")
       ("eos-evm-node", boost::program_options::value<std::string>()->default_value(silkworm::kDefaultPrivateApiAddr),
         "address to eos-evm-node of the form <address>:<port>")
       ("rpc-threads", boost::program_options::value<uint32_t>()->default_value(16),
@@ -75,7 +73,6 @@ void rpc_plugin::set_program_options( appbase::options_description& cli, appbase
 void rpc_plugin::plugin_initialize( const appbase::variables_map& options ) try {
 
    const auto& http_port   = options.at("http-port").as<std::string>();
-   const auto& engine_port   = options.at("rpc-engine-port").as<std::string>();
    const auto  threads     = options.at("rpc-threads").as<uint32_t>();
    const auto  max_readers = options.at("rpc-max-readers").as<uint32_t>();
    const auto  rpc_quirk_flag = options.at("rpc-quirk-flag").as<uint64_t>();
@@ -123,7 +120,7 @@ void rpc_plugin::plugin_initialize( const appbase::variables_map& options ) try 
       .context_pool_settings = silkworm::concurrency::ContextPoolSettings{},
       .datadir               = data_dir,
       .eth_end_point         = http_port,
-      .engine_end_point      = engine_port,
+      .engine_end_point      = std::string(),
       .eth_api_spec          = options.at("api-spec").as<std::string>(),
       .private_api_addr      = node_port,
       .num_workers           = threads,
