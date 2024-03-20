@@ -46,7 +46,7 @@ class blockchain_plugin_impl : std::enable_shared_from_this<blockchain_plugin_im
                      exec_engine = std::make_unique<ExecutionEngineEx>(appbase::app().get_io_context(), *node_settings, silkworm::db::RWAccess{*db_env});
                      exec_engine->open();
                   }
-
+                  
                   exec_engine->insert_block(new_block);
                   if(!(++block_count % 5000) || !new_block->irreversible) {
                      // Get the last complete EVM block from irreversible EOS blocks.

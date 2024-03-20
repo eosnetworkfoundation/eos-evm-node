@@ -5,6 +5,7 @@
 #include <silkworm/core/common/util.hpp>
 #include <silkworm/infra/common/log.hpp>
 
+static constexpr eosio::name configchange_n = eosio::name("configchange");
 static constexpr eosio::name pushtx_n = eosio::name("pushtx");
 static constexpr eosio::name evmtx_n = eosio::name("evmtx");
 

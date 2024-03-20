@@ -1,8 +1,10 @@
 #include "block_conversion_plugin.hpp"
+#include "blockchain_plugin.hpp"
 #include "channels.hpp"
 #include "abi_utils.hpp"
 #include "utils.hpp"
 #include <eosevm/block_mapping.hpp>
+#include <eosevm/consensus_parameters.hpp>
 #include <eosevm/version.hpp>
 
 #include <fstream>
@@ -10,6 +12,7 @@
 #include <silkworm/core/types/transaction.hpp>
 #include <silkworm/core/trie/vector_root.hpp>
 #include <silkworm/core/common/endian.hpp>
+#include <silkworm/node/db/access_layer.hpp>
 
 using sys = sys_plugin;
 
@@ -119,6 +122,8 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
 
          new_block.header.parent_hash = last_evm_block.header.hash();
          new_block.header.transactions_root = silkworm::kEmptyRoot;
+         // Note: can be null
+         new_block.consensus_parameter_index = last_evm_block.consensus_parameter_index;
          return new_block;
       }
 
@@ -267,6 +272,27 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                // Add transactions to the evm block
                auto& curr = evm_blocks.back();
                auto block_version = eosevm::nonce_to_version(curr.header.nonce);
+               if (new_block->new_config.has_value()){
+                  if (!curr.transactions.empty()) {
+                     SILK_CRIT << "new config comes in the middle of an evm block";
+                     throw std::runtime_error("new config comes in the middle of an evm block");
+                  }
+                  auto new_config = deserialize_config(new_block->new_config.value());
+                  auto consensus_param = eosevm::ConsensusParameters {
+                     .min_gas_price = std::visit([](auto&& arg) -> auto& { return arg.minimum_gas_price; }, new_config),
+                     .gas_fee_parameters = eosevm::GasFeeParameters {
+                        .gas_txnewaccount = std::visit([](auto&& arg) -> auto& { return arg.gas_parameter.gas_txnewaccount; }, new_config),
+                        .gas_newaccount = std::visit([](auto&& arg) -> auto& { return arg.gas_parameter.gas_newaccount; }, new_config),
+                        .gas_txcreate = std::visit([](auto&& arg) -> auto& { return arg.gas_parameter.gas_txcreate; }, new_config),
+                        .gas_codedeposit = std::visit([](auto&& arg) -> auto& { return arg.gas_parameter.gas_codedeposit; }, new_config),
+                        .gas_sset = std::visit([](auto&& arg) -> auto& { return arg.gas_parameter.gas_sset; }, new_config),
+                     }
+                  };
+                  curr.consensus_parameter_index = consensus_param.hash();
+
+                  silkworm::db::update_consensus_parameters(appbase::app().get_plugin<blockchain_plugin>().get_tx(), *curr.consensus_parameter_index, consensus_param);
+               }
+
                for_each_action(*new_block, [this, &curr, &block_version](const auto& act){
                      auto dtx = deserialize_tx(act);
                      auto& rlpx_ref = std::visit([](auto&& arg) -> auto& { return arg.rlpx; }, dtx);
@@ -337,6 +363,12 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
          evmtx_type evmtx;
          eosio::convert_from_bin(evmtx, na.data);
          return evmtx;
+      }
+
+      inline consensus_parameter_data_type deserialize_config(const channels::native_action& na) const {
+         consensus_parameter_data_type new_configs;
+         eosio::convert_from_bin(new_configs, na.data);
+         return new_configs;
       }
 
       uint64_t get_evm_lib() {
