@@ -99,7 +99,6 @@ void rpc_plugin::plugin_initialize( const appbase::variables_map& options ) try 
    silkworm::NodeSettings node_settings;
    node_settings.data_directory = std::make_unique<silkworm::DataDirectory>(data_dir, false);
    node_settings.network_id = config.chain_id;
-   node_settings.etherbase  = silkworm::to_evmc_address(silkworm::from_hex("").value()); // TODO determine etherbase name
    node_settings.chaindata_env_config = {node_settings.data_directory->chaindata().path().string(), false, true, false, false, true};
 
    //  bool create{false};          // Whether db file must be created

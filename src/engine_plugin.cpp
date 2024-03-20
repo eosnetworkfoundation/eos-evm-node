@@ -61,7 +61,6 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
       engine_plugin_impl(const std::string& data_dir, uint32_t num_of_threads, uint32_t max_readers, std::string address, std::optional<std::string> genesis_json) {
 
          node_settings.data_directory = std::make_unique<silkworm::DataDirectory>(data_dir, false);
-         node_settings.etherbase  = silkworm::to_evmc_address(silkworm::from_hex("").value()); // TODO determine etherbase name
          node_settings.chaindata_env_config = {node_settings.data_directory->chaindata().path().string(), false, false};
          node_settings.chaindata_env_config.max_readers = max_readers;
          node_settings.chaindata_env_config.exclusive = false;
@@ -115,7 +114,7 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
          auto sentry = std::make_shared<nopsentry>();
          eth.reset(new silkworm::EthereumBackEnd(node_settings, &db_env, sentry));
          eth->set_node_name("EOS EVM Node");
-         SILK_INFO << "Created Ethereum Backend with network id <" << node_settings.network_id << ">, etherbase <" << node_settings.etherbase->bytes << ">";
+         SILK_INFO << "Created Ethereum Backend with network id <" << node_settings.network_id << ">";
 
          server.reset(new silkworm::rpc::BackEndKvServer(server_settings, *eth.get()));
       }

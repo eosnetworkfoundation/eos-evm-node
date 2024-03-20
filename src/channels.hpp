@@ -38,6 +38,7 @@ namespace channels {
       uint32_t                block_num = 0;
       int64_t                 timestamp = 0;
       uint32_t                lib = 0;
+      std::optional<native_action>  new_config = std::nullopt;
       std::vector<native_trx> transactions;
    };
    

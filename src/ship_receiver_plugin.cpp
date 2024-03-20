@@ -201,7 +201,7 @@ class ship_receiver_plugin_impl : std::enable_shared_from_this<ship_receiver_plu
          std::map<uint64_t, eosio::ship_protocol::action_trace> ordered_action_traces;
          for (std::size_t j = 0; j < actions.size(); ++j) {
             std::visit([&](auto& act) {
-               if (act.act.name == action_to_search && core_account == act.receiver) {
+               if ((act.act.name == action_to_search || act.act.name == configchange_n) && core_account == act.receiver) {
                   if (!act.receipt.has_value()) {
                      SILK_ERROR << "action_trace does not have receipt";
                      throw std::runtime_error("action_trace does not have receipt");
@@ -215,7 +215,7 @@ class ship_receiver_plugin_impl : std::enable_shared_from_this<ship_receiver_plu
                }
             }, actions[j]);
          }
-         if (ordered_action_traces.size()) {
+         if (ordered_action_traces.size()) {   
             for (const auto &pair: ordered_action_traces) {
                std::visit([&](const auto& act) {
                   channels::native_action action = {
@@ -225,11 +225,29 @@ class ship_receiver_plugin_impl : std::enable_shared_from_this<ship_receiver_plu
                      act.act.name,
                      std::vector<char>(act.act.data.pos, act.act.data.end)
                   };
-                  if(native_trx.actions.size() && native_trx.actions.back().name != action.name) {
-                     SILK_ERROR << "pushtx and evmtx found on the same transaction";
-                     throw std::runtime_error("pushtx and evmtx found on the same transaction");
+                  
+                  if (action.name == configchange_n) {
+                     if (block.new_config.has_value()) {
+                        SILK_ERROR << "multiple configchange in one block";
+                        throw std::runtime_error("multiple configchange in one block");
+                     }
+                     if (native_trx.actions.size() || block.transactions.size()) {
+                        SILK_ERROR << "configchange can only be the first action";
+                        throw std::runtime_error("configchange can only be the first action");
+                     }
+                     block.new_config = action;
                   }
-                  native_trx.actions.emplace_back(std::move(action));
+                  else {
+                     if (block.new_config.has_value() && action.name == pushtx_n) {
+                           SILK_ERROR << "pushtx and configchange found on the same transaction";
+                           throw std::runtime_error("pushtx and configchange found on the same transaction");
+                     }
+                     if (native_trx.actions.size() && native_trx.actions.back().name != action.name) {
+                           SILK_ERROR << "pushtx and evmtx found on the same transaction";
+                           throw std::runtime_error("pushtx and evmtx found on the same transaction");
+                     }
+                     native_trx.actions.emplace_back(std::move(action));
+                  }
                }, pair.second);
             }
             if(block.transactions.size() && block.transactions.back().actions.back().name != native_trx.actions.back().name) {
