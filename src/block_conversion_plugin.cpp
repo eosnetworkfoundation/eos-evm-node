@@ -36,13 +36,14 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
         : evm_blocks_channel(appbase::app().get_channel<channels::evm_blocks>()){}
 
 
-      uint32_t timestamp_to_evm_block_num(uint64_t timestamp) const {
-         if (timestamp < bm.value().genesis_timestamp) {
-            SILK_CRIT << "Invalid timestamp " << timestamp << ", genesis: " << bm->genesis_timestamp;
-            assert(timestamp >= bm->genesis_timestamp);
+      uint32_t timestamp_to_evm_block_num(uint64_t timestamp_us) const {
+         uint64_t timestamp_s = timestamp_us / 1e6;
+         if (timestamp_s < bm.value().genesis_timestamp) {
+            SILK_CRIT << "Invalid timestamp " << timestamp_s << ", genesis: " << bm->genesis_timestamp;
+            assert(timestamp_s >= bm->genesis_timestamp);
          }
 
-         return bm->timestamp_to_evm_block_num(timestamp);
+         return bm->timestamp_to_evm_block_num(timestamp_us);
       }
 
       void load_head() {
