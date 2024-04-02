@@ -402,6 +402,32 @@ jobs:
           popd
           ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }}/tests/nodeos_eos_evm_ws_test_fork.py -v --eos-evm-contract-root ${{ steps.evm-contract.outputs.EVM_CONTRACT }} --eos-evm-build-root ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }}
 
+      - name: Test Gas Parameter Fork Handling
+        run: |
+          echo "=== current directory is $(pwd)==="
+          apt-get install psmisc
+          killall -9 nodeos || true
+          killall -9 eos-evm-node || true
+          killall -9 eos-evm-rpc || true
+          sleep 1.0
+          mkdir -p ws_test_run_root
+          cd ws_test_run_root
+          pip install --upgrade web3
+          pip install otree
+          pip install websocket-client
+          pushd ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }}
+          cd peripherals/eos-evm-ws-proxy
+          npm install env
+          npm install dotenv
+          npm install winston
+          npm install ws
+          npm install uuid
+          npm install axios
+          npm install web3
+          npm install collections
+          popd
+          ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }}/tests/nodeos_eos_evm_gasparam_fork_test.py -v --eos-evm-contract-root ${{ steps.evm-contract.outputs.EVM_CONTRACT }} --eos-evm-build-root ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }}
+          
       - name: Prepare Logs
         if: failure()
         run: |
