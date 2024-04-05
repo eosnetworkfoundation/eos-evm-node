@@ -263,7 +263,7 @@ try:
     prodNode = cluster.getNode(0)
     nonProdNode = cluster.getNode(1)
 
-    accounts=createAccountKeys(5)
+    accounts=createAccountKeys(6)
     if accounts is None:
         Utils.errorExit("FAILURE - create keys")
 
@@ -273,6 +273,7 @@ try:
     minerAcc = accounts[2]
     defertestAcc = accounts[3]
     defertest2Acc = accounts[4]
+    aliceAcc = accounts[5]
 
     testWalletName="test"
 
@@ -868,6 +869,56 @@ try:
     # Transfer funds (now using version=1)
     nonProdNode.transferFunds(cluster.eosioAccount, evmAcc, "111.0000 EOS", "0xB106D2C286183FFC3D1F0C4A6f0753bB20B407c2", waitForTransBlock=True)
     time.sleep(2)
+
+    # update gas parameter 
+    Utils.Print("Update gas parameter: ram price = 100 EOS per MB, gas price = 900Gwei")
+    trans = prodNode.pushMessage(evmAcc.name, "updtgasparam", json.dumps({"ram_price_mb":"100.0000 EOS","minimum_gas_price":900000000000}), '-p {0}'.format(evmAcc.name), silentErrors=False)
+    prodNode.waitForTransBlockIfNeeded(trans[1], True);
+    time.sleep(2)
+
+    Utils.Print("Transfer funds to trigger config change event on contract")
+    # Transfer funds (now using version=1)
+    nonProdNode.transferFunds(cluster.eosioAccount, evmAcc, "112.0000 EOS", "0xB106D2C286183FFC3D1F0C4A6f0753bB20B407c2", waitForTransBlock=True)
+    time.sleep(2)
+
+    b = get_block("latest")
+    # 'consensusParameter': {'gasFeeParameters': {'gasCodedeposit': 118, 'gasNewaccount': 40946, 'gasSset': 43728, 'gasTxcreate': 71508, 'gasTxnewaccount': 40946}, 'minGasPrice': 900000000000}
+
+    assert("consensusParameter" in b)
+    assert(b["consensusParameter"]["minGasPrice"] == 900000000000)
+    assert(b["consensusParameter"]["gasFeeParameters"]["gasCodedeposit"] == 118)
+    assert(b["consensusParameter"]["gasFeeParameters"]["gasNewaccount"] == 40946)
+    assert(b["consensusParameter"]["gasFeeParameters"]["gasSset"] == 43728)
+    assert(b["consensusParameter"]["gasFeeParameters"]["gasTxcreate"] == 71508)
+    assert(b["consensusParameter"]["gasFeeParameters"]["gasTxnewaccount"] == 40946)
+
+    # EVM -> EOS
+    #   0x9E126C57330FA71556628e0aabd6B6B6783d99fA private key: 0xba8c9ff38e4179748925335a9891b969214b37dc3723a1754b8b849d3eea9ac0
+    toAdd = makeReservedEvmAddress(convert_name_to_value(aliceAcc.name))
+    evmSendKey = "ba8c9ff38e4179748925335a9891b969214b37dc3723a1754b8b849d3eea9ac0"
+    amount=1.0000
+    transferAmount="1.0000 {0}".format(CORE_SYMBOL)
+    bal1 = w3.eth.get_balance(Web3.to_checksum_address("0x9E126C57330FA71556628e0aabd6B6B6783d99fA"))
+    Print("Using new gas param, transfer EVM->EOS funds %s from account %s to new account" % (transferAmount, evmAcc.name))
+    nonce = nonce + 1
+    signed_trx = w3.eth.account.sign_transaction(dict(
+        nonce=nonce,
+        gas=100000,       #100k Gas
+        gasPrice=900000000000,
+        to=Web3.to_checksum_address(toAdd),
+        value=int(amount*10000*szabo*100), # .0001 EOS is 100 szabos
+        data=b'',
+        chainId=evmChainId
+    ), evmSendKey)
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=False)
+    prodNode.waitForTransBlockIfNeeded(trans[1], True)
+    row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
+    Utils.Print("\taccount row4: ", row4)
+    bal2 = w3.eth.get_balance(Web3.to_checksum_address("0x9E126C57330FA71556628e0aabd6B6B6783d99fA"))
+
+    # balance different = 1.0 EOS (val) + 900(Gwei) (21000(base gas) + 40946 (gas for non-exist account) )
+    assert(bal1 == bal2 + 1000000000000000000 + 900000000000 * (21000 + 40946))
 
     Utils.Print("Validate all balances (check evmtx event processing)")
     # Validate all balances (check evmtx event)
