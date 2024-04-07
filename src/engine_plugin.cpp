@@ -73,12 +73,11 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
          tid = std::this_thread::get_id();
 
          const auto data_path = std::filesystem::path(node_settings.data_directory->chaindata().path().string());
-         if ( std::filesystem::exists(data_path) ) {
-            node_settings.chaindata_env_config.shared = true;
-         } else {
+         // We do not set shared flag as node suppose to be the only writter to the db. 
+         // There should be any valid case to use the shared flag here with our current design. 
+         if ( !std::filesystem::exists(data_path) ) {
             node_settings.chaindata_env_config.create = true;
          }
-
          db_env = silkworm::db::open_env(node_settings.chaindata_env_config);
          SILK_INFO << "Created DB environment at location : " << node_settings.data_directory->chaindata().path().string();
 
