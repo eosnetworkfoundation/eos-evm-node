@@ -280,7 +280,6 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                   }
                   auto new_config = deserialize_config(new_block->new_config.value());
                   auto consensus_param = eosevm::ConsensusParameters {
-                     .min_gas_price = std::visit([](auto&& arg) -> auto& { return arg.minimum_gas_price; }, new_config),
                      .gas_fee_parameters = eosevm::GasFeeParameters {
                         .gas_txnewaccount = std::visit([](auto&& arg) -> auto& { return arg.gas_parameter.gas_txnewaccount; }, new_config),
                         .gas_newaccount = std::visit([](auto&& arg) -> auto& { return arg.gas_parameter.gas_newaccount; }, new_config),

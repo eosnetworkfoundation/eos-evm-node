@@ -872,7 +872,7 @@ try:
 
     # update gas parameter 
     Utils.Print("Update gas parameter: ram price = 100 EOS per MB, gas price = 900Gwei")
-    trans = prodNode.pushMessage(evmAcc.name, "updtgasparam", json.dumps({"ram_price_mb":"100.0000 EOS","minimum_gas_price":900000000000}), '-p {0}'.format(evmAcc.name), silentErrors=False)
+    trans = prodNode.pushMessage(evmAcc.name, "updtgasparam", json.dumps({"ram_price_mb":"100.0000 EOS","gas_price":900000000000}), '-p {0}'.format(evmAcc.name), silentErrors=False)
     prodNode.waitForTransBlockIfNeeded(trans[1], True);
     time.sleep(2)
 
@@ -882,10 +882,10 @@ try:
     time.sleep(2)
 
     b = get_block("latest")
-    # 'consensusParameter': {'gasFeeParameters': {'gasCodedeposit': 118, 'gasNewaccount': 40946, 'gasSset': 43728, 'gasTxcreate': 71508, 'gasTxnewaccount': 40946}, 'minGasPrice': 900000000000}
+    Utils.Print("get_block_latest: " + json.dumps(b))
+    # 'consensusParameter': {'gasFeeParameters': {'gasCodedeposit': 118, 'gasNewaccount': 40946, 'gasSset': 43728, 'gasTxcreate': 71508, 'gasTxnewaccount': 40946}}
 
     assert("consensusParameter" in b)
-    assert(b["consensusParameter"]["minGasPrice"] == 900000000000)
     assert(b["consensusParameter"]["gasFeeParameters"]["gasCodedeposit"] == 118)
     assert(b["consensusParameter"]["gasFeeParameters"]["gasNewaccount"] == 40946)
     assert(b["consensusParameter"]["gasFeeParameters"]["gasSset"] == 43728)

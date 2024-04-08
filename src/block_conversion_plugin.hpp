@@ -29,11 +29,10 @@ struct gas_parameter_type {
 EOSIO_REFLECT(gas_parameter_type, gas_txnewaccount, gas_newaccount, gas_txcreate, gas_codedeposit, gas_sset)
 
 struct consensus_parameter_data_v0 {
-    uint64_t                   minimum_gas_price = 0;
-    gas_parameter_type         gas_parameter;
+    gas_parameter_type gas_parameter;
 };
 using consensus_parameter_data_type = std::variant<consensus_parameter_data_v0>;
-EOSIO_REFLECT(consensus_parameter_data_v0, minimum_gas_price, gas_parameter)
+EOSIO_REFLECT(consensus_parameter_data_v0, gas_parameter)
 
 class block_conversion_plugin : public appbase::plugin<block_conversion_plugin> {
    public:
