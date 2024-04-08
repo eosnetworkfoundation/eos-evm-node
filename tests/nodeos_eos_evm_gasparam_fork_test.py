@@ -745,13 +745,20 @@ try:
     evmRPCPOpen=Utils.delayedCheckOutput(cmdArr, stdout=outFile, stderr=errFile)
     time.sleep(2.0)
 
+    # ==== gas parameter before the fork ===
     # verify version 1
     Utils.Print("Verify evm_version==1 from eos-evm-node")
     # Verify header.nonce == 1 (evmversion=1)
-    b = w3.eth.get_block('latest')
-    Utils.Print("the latest evm block is:" + str(b))
-    Utils.Print("nonce is:" + b["nonce"].hex())
-    assert(b["nonce"].hex() == "0x0000000000000001")
+    evm_block = w3.eth.get_block('latest')
+    Utils.Print("before fork, the latest evm block is:" + str(evm_block))
+    assert(evm_block["nonce"].hex() == "0x0000000000000001")
+    assert("consensusParameter" in evm_block)
+    assert(evm_block["consensusParameter"]["minGasPrice"] == 10000000000)
+    assert(evm_block["consensusParameter"]["gasFeeParameters"]["gasCodedeposit"] == 530)
+    assert(evm_block["consensusParameter"]["gasFeeParameters"]["gasNewaccount"] == 183910)
+    assert(evm_block["consensusParameter"]["gasFeeParameters"]["gasSset"] == 186280)
+    assert(evm_block["consensusParameter"]["gasFeeParameters"]["gasTxcreate"] == 321180)
+    assert(evm_block["consensusParameter"]["gasFeeParameters"]["gasTxnewaccount"] == 183910)
 
     # Validate all balances are the same on both sides
     rows=prodNode.getTable(evmAcc.name, evmAcc.name, "account")
@@ -813,7 +820,7 @@ try:
     Utils.Print("block number %d is producer by %s in node0" % (blockNum, blockProducer))
     Utils.Print("block number %d is producer by %s in node1" % (blockNum, blockProducer1))
 
-    # ***   Killing the "bridge" node   ***
+    # ===== start to make a fork, killing the "bridge" node ====
     Print("Sending command to kill \"bridge\" node to separate the 2 producer groups.")
     # # block number to start expecting node killed after
     preKillBlockNum=blockNum
@@ -925,6 +932,18 @@ try:
     assert(row4_node1["balance"] == "0000000000000000000000000000000000000000000000024c86f5581e971800")
     assert(row4["balance"] != row4_node1["balance"])
 
+    # verify eos-evm-node get the new gas parameter from the minor fork
+    evm_block = w3.eth.get_block('latest')
+    Utils.Print("in minor fork, the latest evm block is:" + str(evm_block))
+    assert(evm_block["nonce"].hex() == "0x0000000000000001")
+    assert("consensusParameter" in evm_block)
+    assert(evm_block["consensusParameter"]["minGasPrice"] == 10000000000)
+    assert(evm_block["consensusParameter"]["gasFeeParameters"]["gasCodedeposit"] == 636)
+    assert(evm_block["consensusParameter"]["gasFeeParameters"]["gasNewaccount"] == 220692)
+    assert(evm_block["consensusParameter"]["gasFeeParameters"]["gasSset"] == 222956)
+    assert(evm_block["consensusParameter"]["gasFeeParameters"]["gasTxcreate"] == 385416)
+    assert(evm_block["consensusParameter"]["gasFeeParameters"]["gasTxnewaccount"] == 220692)
+
     # Validate all balances are the same between node0(prodNode) and eos-evm-node
     Utils.Print("Validate all balances are the same between node0(minor-fork) and eos-evm-node")
     rows=prodNode.getTable(evmAcc.name, evmAcc.name, "account")
@@ -1016,6 +1035,17 @@ try:
     assert(row4["eth_address"] == "9e126c57330fa71556628e0aabd6b6b6783d99fa")
     assert(row4["balance"] == "0000000000000000000000000000000000000000000000024c86f5581e971800")
     assert(row4["balance"] == row4_node1["balance"])
+
+    evm_block = w3.eth.get_block('latest')
+    Utils.Print("after fork resolved, the latest evm block is:" + str(evm_block))
+    assert(evm_block["nonce"].hex() == "0x0000000000000001")
+    assert("consensusParameter" in evm_block)
+    assert(evm_block["consensusParameter"]["minGasPrice"] == 10000000000)
+    assert(evm_block["consensusParameter"]["gasFeeParameters"]["gasCodedeposit"] == 530)
+    assert(evm_block["consensusParameter"]["gasFeeParameters"]["gasNewaccount"] == 183910)
+    assert(evm_block["consensusParameter"]["gasFeeParameters"]["gasSset"] == 186280)
+    assert(evm_block["consensusParameter"]["gasFeeParameters"]["gasTxcreate"] == 321180)
+    assert(evm_block["consensusParameter"]["gasFeeParameters"]["gasTxnewaccount"] == 183910)
 
     # Validate all balances are the same between node0(prodNode) and eos-evm-node
     Utils.Print("Validate all balances are the same between node0 and eos-evm-node after fork resolved")
