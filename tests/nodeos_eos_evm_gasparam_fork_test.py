@@ -684,7 +684,7 @@ try:
 
     # update gas parameter 
     Utils.Print("Update gas parameter: ram price = 5 EOS per MB, gas price = 10Gwei")
-    trans = prodNode.pushMessage(evmAcc.name, "updtgasparam", json.dumps({"ram_price_mb":"5.0000 EOS","minimum_gas_price":10000000000}), '-p {0}'.format(evmAcc.name), silentErrors=False)
+    trans = prodNode.pushMessage(evmAcc.name, "updtgasparam", json.dumps({"ram_price_mb":"5.0000 EOS","gas_price":10000000000}), '-p {0}'.format(evmAcc.name), silentErrors=False)
     prodNode.waitForTransBlockIfNeeded(trans[1], True);
     time.sleep(2)
 
@@ -714,7 +714,7 @@ try:
     assert(row4["eth_address"] == "9e126c57330fa71556628e0aabd6b6b6783d99fa")
     assert(row4["balance"] == "0000000000000000000000000000000000000000000000024c923bc3177b4c00")
     # diff = 3,173,650,000,000,000 = 3,173,650 (Gwei) = (100,000 + (183910 + 21000) * 15) (Gwei)
-    # {"ram_price_mb":"5.0000 EOS","minimum_gas_price":10000000000}
+    # {"ram_price_mb":"5.0000 EOS","gas_price":10000000000}
     # {'consensusParameter': AttributeDict({'gasFeeParameters': AttributeDict({'gasCodedeposit': 530, 'gasNewaccount': 183910, 'gasSset': 186280, 'gasTxcreate': 321180, 'gasTxnewaccount': 183910}
 
     # Launch eos-evm-node
@@ -890,7 +890,7 @@ try:
 
     # update gas parameter in minor fork (node0), but not node1
     Utils.Print("Update gas parameter in minor fork: ram price = 6 EOS per MB, gas price = 10Gwei")
-    trans = prodNode.pushMessage(evmAcc.name, "updtgasparam", json.dumps({"ram_price_mb":"6.0000 EOS","minimum_gas_price":10000000000}), '-p {0}'.format(evmAcc.name), silentErrors=False)
+    trans = prodNode.pushMessage(evmAcc.name, "updtgasparam", json.dumps({"ram_price_mb":"6.0000 EOS","gas_price":10000000000}), '-p {0}'.format(evmAcc.name), silentErrors=False)
     prodNode.waitForTransBlockIfNeeded(trans[1], True);
     time.sleep(2)
 
