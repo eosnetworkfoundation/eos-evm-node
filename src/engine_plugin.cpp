@@ -186,22 +186,21 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
                   SILK_INFO << "Canonical header at: " << "#" << target;
                }
             }
-
-            // Make sure block returned from this function has a proper eos_id in it.
-            auto new_header = find_block_with_valid_eos_id(target);
-            if (!new_header) {
-               SILK_INFO << "Failed to find proper canonical header";
-               return {};
-            }
-            target = new_header->number;
          }
          else {
             // Do not check canonical header or lib.
             // If there's anything wrong, overriding here has some chance to fix it.
-            // Note that we even skip valid eos id check just in case we are trying to force recovery into that state.
             target = *height;
             SILK_INFO << "Command line options set the canonical height as " << "#" << target;
          }
+
+         // Make sure block returned from this function has a proper eos_id in it.
+         auto new_header = find_block_with_valid_eos_id(target);
+         if (!new_header) {
+            SILK_INFO << "Failed to find proper canonical header";
+            return {};
+         }
+         target = new_header->number;
 
          silkworm::db::ROTxn txn(db_env);
          silkworm::Block block;
