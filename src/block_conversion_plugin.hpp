@@ -15,9 +15,10 @@ EOSIO_REFLECT(pushtx, miner, rlpx)
 struct evmtx_v0 {
    uint64_t eos_evm_version;
    std::vector<uint8_t> rlpx;
+   uint64_t base_fee_per_gas;
 };
 using evmtx_type = std::variant<evmtx_v0>;
-EOSIO_REFLECT(evmtx_v0, eos_evm_version, rlpx)
+EOSIO_REFLECT(evmtx_v0, eos_evm_version, rlpx, base_fee_per_gas)
 
 struct gas_parameter_type {
     uint64_t gas_txnewaccount = 0;
