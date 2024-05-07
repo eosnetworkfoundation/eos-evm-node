@@ -119,7 +119,12 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
          } else {
             eos_evm_version = eosevm::nonce_to_version(last_evm_block.header.nonce);
          }
-         eosevm::prepare_block_header(new_block.header, bm.value(), evm_contract_name, last_evm_block.header.number+1, eos_evm_version);
+
+         std::optional<uint64_t> base_fee_per_gas;
+         if(last_evm_block.header.base_fee_per_gas.has_value()) {
+            base_fee_per_gas = static_cast<uint64_t>(last_evm_block.header.base_fee_per_gas.value());
+         }
+         eosevm::prepare_block_header(new_block.header, bm.value(), evm_contract_name, last_evm_block.header.number+1, eos_evm_version, base_fee_per_gas);
 
          new_block.header.parent_hash = last_evm_block.header.hash();
          new_block.header.transactions_root = silkworm::kEmptyRoot;
@@ -299,7 +304,7 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
 
                      silkworm::ByteView bv = {(const uint8_t*)rlpx_ref.data(), rlpx_ref.size()};
                      silkworm::Transaction evm_tx;
-                     if (!silkworm::rlp::decode(bv, evm_tx)) {
+                     if (!silkworm::rlp::decode_transaction(bv, evm_tx, silkworm::rlp::Eip2718Wrapping::kBoth, silkworm::rlp::Leftover::kProhibit)) {
                         SILK_CRIT << "Failed to decode transaction in block: " << curr.header.number;
                         throw std::runtime_error("Failed to decode transaction");
                      }
@@ -315,6 +320,20 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                         } else {
                            SILK_CRIT << "tx_version > block_version";
                            throw std::runtime_error("tx_version > block_version");
+                        }
+                     }
+
+                     if(block_version >= 1) {
+                        auto tx_base_fee = std::visit([](auto&& arg) -> auto { return arg.base_fee_per_gas; }, dtx);
+                        if(!curr.header.base_fee_per_gas.has_value()) {
+                           curr.header.base_fee_per_gas = tx_base_fee;
+                        } else if (curr.header.base_fee_per_gas.value() != tx_base_fee) {
+                           if(curr.transactions.empty()) {
+                              curr.header.base_fee_per_gas = tx_base_fee;
+                           } else {
+                              SILK_CRIT << "curr.base_fee_per_gas != tx_base_fee";
+                              throw std::runtime_error("curr.base_fee_per_gas != tx_base_fee");
+                           }
                         }
                      }
 
@@ -358,7 +377,7 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
          if( na.name == pushtx_n ) {
             pushtx tx;
             eosio::convert_from_bin(tx, na.data);
-            return evmtx_type{evmtx_v0{0, std::move(tx.rlpx)}};
+            return evmtx_type{evmtx_v0{0, std::move(tx.rlpx), 0}};
          }
          evmtx_type evmtx;
          eosio::convert_from_bin(evmtx, na.data);

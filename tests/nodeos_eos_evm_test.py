@@ -860,10 +860,13 @@ try:
     nonProdNode.transferFunds(cluster.eosioAccount, evmAcc, "111.0000 EOS", "0xB106D2C286183FFC3D1F0C4A6f0753bB20B407c2", waitForTransBlock=True)
     time.sleep(2)
 
-    Utils.Print("Verify evm_version==1")
+    Utils.Print("Verify evm_version==1 and base_fe_per_gas")
     # Verify header.nonce == 1 (evmversion=1)
+    # Verify header.baseFeePerGas == 10GWei (0x2540be400)
     b = get_block("latest")
+
     assert(b["nonce"] == "0x0000000000000001")
+    assert(b["baseFeePerGas"] == "0x2540be400")
 
     Utils.Print("Transfer funds to trigger evmtx event on contract")
     # Transfer funds (now using version=1)
@@ -883,14 +886,18 @@ try:
 
     b = get_block("latest")
     Utils.Print("get_block_latest: " + json.dumps(b))
-    # 'consensusParameter': {'gasFeeParameters': {'gasCodedeposit': 118, 'gasNewaccount': 40946, 'gasSset': 43728, 'gasTxcreate': 71508, 'gasTxnewaccount': 40946}}
+    # "consensusParameter": {"gasFeeParameters": {"gasCodedeposit": 106, "gasNewaccount": 36782, "gasSset": 39576, "gasTxcreate": 64236, "gasTxnewaccount": 36782}
 
     assert("consensusParameter" in b)
-    assert(b["consensusParameter"]["gasFeeParameters"]["gasCodedeposit"] == 118)
-    assert(b["consensusParameter"]["gasFeeParameters"]["gasNewaccount"] == 40946)
-    assert(b["consensusParameter"]["gasFeeParameters"]["gasSset"] == 43728)
-    assert(b["consensusParameter"]["gasFeeParameters"]["gasTxcreate"] == 71508)
-    assert(b["consensusParameter"]["gasFeeParameters"]["gasTxnewaccount"] == 40946)
+    assert(b["consensusParameter"]["gasFeeParameters"]["gasCodedeposit"] == 106)
+    assert(b["consensusParameter"]["gasFeeParameters"]["gasNewaccount"] == 36782)
+    assert(b["consensusParameter"]["gasFeeParameters"]["gasSset"] == 39576)
+    assert(b["consensusParameter"]["gasFeeParameters"]["gasTxcreate"] == 64236)
+    assert(b["consensusParameter"]["gasFeeParameters"]["gasTxnewaccount"] == 36782)
+
+    # Verify header.baseFeePerGas still 10GWei (0x2540be400) it will change in 3mins
+    b = get_block("latest")
+    assert(b["baseFeePerGas"] == "0x2540be400")
 
     # EVM -> EOS
     #   0x9E126C57330FA71556628e0aabd6B6B6783d99fA private key: 0xba8c9ff38e4179748925335a9891b969214b37dc3723a1754b8b849d3eea9ac0
@@ -917,8 +924,20 @@ try:
     Utils.Print("\taccount row4: ", row4)
     bal2 = w3.eth.get_balance(Web3.to_checksum_address("0x9E126C57330FA71556628e0aabd6B6B6783d99fA"))
 
-    # balance different = 1.0 EOS (val) + 900(Gwei) (21000(base gas) + 40946 (gas for non-exist account) )
-    assert(bal1 == bal2 + 1000000000000000000 + 900000000000 * (21000 + 40946))
+    # balance different = 1.0 EOS (val) + 900(Gwei) (21000(base gas) + 36782 (gas for non-exist account) )
+    assert(bal1 == bal2 + 1000000000000000000 + 900000000000 * (21000 + 36782))
+
+    # Wait 3 mins
+    Utils.Print("Wait 3 mins")
+    time.sleep(180)
+
+    # Trigger change in base_fee_per_gas
+    nonProdNode.transferFunds(cluster.eosioAccount, evmAcc, "1.0000 EOS", "0xB106D2C286183FFC3D1F0C4A6f0753bB20B407c2", waitForTransBlock=True)
+    time.sleep(2)
+
+    # Verify header.baseFeePerGas is now 900GWei (0xd18c2e2800)
+    b = get_block("latest")
+    assert(b["baseFeePerGas"] == "0xd18c2e2800")
 
     Utils.Print("Validate all balances (check evmtx event processing)")
     # Validate all balances (check evmtx event)
