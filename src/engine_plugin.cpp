@@ -143,13 +143,12 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
          SILK_INFO << "Search for block containing a valid eos id. Start from:" << "#" << start_height;
          silkworm::db::ROTxn txn(db_env);
          std::optional<silkworm::BlockHeader> res;
-         while(start_height>0) {
+         do {
             res = silkworm::db::read_canonical_header(txn, start_height);
             if(res && !is_zero(res->prev_randao)) {
                break;
             }
-            --start_height;
-         }
+         } while(start_height-- > 0);
          return res;
       }
 
