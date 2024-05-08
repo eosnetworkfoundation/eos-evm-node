@@ -135,6 +135,23 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
          return silkworm::db::read_canonical_header(txn, head_num);
       }
 
+      std::optional<silkworm::BlockHeader> find_block_with_valid_eos_id(uint64_t start_height) {
+         // Search for the last block with a valid eos id in it.
+         // The search is not that optimized. However, this function will only be called during initialization process
+         // in rara cases and the gap in eos will not be too large in most cases. Therefore, it should be fine to leave 
+         // the search process simple.
+         SILK_INFO << "Search for block containing a valid eos id. Start from:" << "#" << start_height;
+         silkworm::db::ROTxn txn(db_env);
+         std::optional<silkworm::BlockHeader> res;
+         do {
+            res = silkworm::db::read_canonical_header(txn, start_height);
+            if(res && !is_zero(res->prev_randao)) {
+               break;
+            }
+         } while(start_height-- > 0);
+         return res;
+      }
+
       std::optional<silkworm::Block> get_canonical_block_at_height(std::optional<uint64_t> height) {
          uint64_t target = 0;
          SILK_INFO << "Determining effective canonical header.";
@@ -171,6 +188,14 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
             target = *height;
             SILK_INFO << "Command line options set the canonical height as " << "#" << target;
          }
+
+         // Make sure block returned from this function has a proper eos_id in it.
+         auto new_header = find_block_with_valid_eos_id(target);
+         if (!new_header) {
+            SILK_INFO << "Failed to find proper canonical header";
+            return {};
+         }
+         target = new_header->number;
 
          silkworm::db::ROTxn txn(db_env);
          silkworm::Block block;
