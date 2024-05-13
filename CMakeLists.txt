@@ -18,10 +18,10 @@ project(eos-evm-node)
 
 include(cmake/conan.cmake)
 
-set(VERSION_MAJOR 0)
-set(VERSION_MINOR 7)
+set(VERSION_MAJOR 1)
+set(VERSION_MINOR 0)
 set(VERSION_PATCH 0)
-#set(VERSION_SUFFIX rc2)
+set(VERSION_SUFFIX rc1)
 
 if(VERSION_SUFFIX)
     set(VERSION_FULL "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}-${VERSION_SUFFIX}")
