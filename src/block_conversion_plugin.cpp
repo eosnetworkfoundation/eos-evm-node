@@ -129,7 +129,7 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
          new_block.header.parent_hash = last_evm_block.header.hash();
          new_block.header.transactions_root = silkworm::kEmptyRoot;
          // Note: can be null
-         new_block.consensus_parameter_index = last_evm_block.consensus_parameter_index;
+         new_block.set_consensus_parameter_index(last_evm_block.get_consensus_parameter_index());
          return new_block;
       }
 
@@ -293,9 +293,9 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                         .gas_sset = std::visit([](auto&& arg) -> auto& { return arg.gas_parameter.gas_sset; }, new_config),
                      }
                   };
-                  curr.consensus_parameter_index = consensus_param.hash();
+                  curr.set_consensus_parameter_index(consensus_param.hash());
 
-                  silkworm::db::update_consensus_parameters(appbase::app().get_plugin<blockchain_plugin>().get_tx(), *curr.consensus_parameter_index, consensus_param);
+                  silkworm::db::update_consensus_parameters(appbase::app().get_plugin<blockchain_plugin>().get_tx(), *curr.get_consensus_parameter_index(), consensus_param);
                }
 
                for_each_action(*new_block, [this, &curr, &block_version](const auto& act){
