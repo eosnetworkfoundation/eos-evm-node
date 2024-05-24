@@ -129,7 +129,10 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
          new_block.header.parent_hash = last_evm_block.header.hash();
          new_block.header.transactions_root = silkworm::kEmptyRoot;
          // Note: can be null
-         new_block.set_consensus_parameter_index(last_evm_block.get_consensus_parameter_index());
+         auto cpi = last_evm_block.get_consensus_parameter_index();
+         if(cpi.has_value()) {
+            new_block.set_consensus_parameter_index(cpi);
+         }
          return new_block;
       }
 
