@@ -232,7 +232,7 @@ try:
     cmd="set account permission eosio.evm active --add-code -p eosio.evm@active"
     prodNode.processCleosCmd(cmd, cmd, silentErrors=True, returnType=ReturnType.raw)
 
-    trans = prodNode.pushMessage(evmAcc.name, "init", '{"chainid":15555, "fee_params": {"gas_price": "150000000000", "miner_cut": 10000, "ingress_bridge_fee": null}}', '-p eosio.evm')
+    trans = prodNode.pushMessage(evmAcc.name, "init", '{"chainid":15555, "fee_params": {"gas_price": "150000000000", "miner_cut": 10000, "ingress_bridge_fee": "0.0001 EOS"}}', '-p eosio.evm')
 
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
 
