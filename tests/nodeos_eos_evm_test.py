@@ -946,6 +946,13 @@ try:
     evm_tx = w3.eth.get_transaction(signed_trx.hash)
     tx_dict = toDict(evm_tx)
     Utils.Print("evm transaction is %s" % (json.dumps(tx_dict)))
+    assert(str(tx_dict["hash"]) == str(Web3.to_hex(signed_trx.hash)))
+
+    Utils.Print("try to get transaction receipt %s from evm-rpc" % (Web3.to_hex(signed_trx.hash)))
+    evm_tx = w3.eth.get_transaction_receipt(signed_trx.hash)
+    tx_dict = toDict(evm_tx)
+    Utils.Print("evm transaction receipt is %s" % (json.dumps(tx_dict)))
+    assert(str(tx_dict["transactionHash"]) == str(Web3.to_hex(signed_trx.hash)))
 
     # Wait 3 mins
     Utils.Print("Wait 3 mins")
