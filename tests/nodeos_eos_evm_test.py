@@ -237,6 +237,18 @@ def makeReservedEvmAddress(account):
                c_uint8(account >>  0).value]
     return "0x" + bytes(bytearr).hex()
 
+def toDict(dictToParse):
+    # convert any 'AttributeDict' type found to 'dict'
+    parsedDict = dict(dictToParse)
+    for key, val in parsedDict.items():
+        # check for nested dict structures to iterate through
+        if  'dict' in str(type(val)).lower():
+            parsedDict[key] = toDict(val)
+        # convert 'HexBytes' type to 'str'
+        elif 'HexBytes' in str(type(val)):
+            parsedDict[key] = val.hex()
+    return parsedDict
+
 try:
     TestHelper.printSystemInfo("BEGIN")
 
@@ -911,21 +923,36 @@ try:
     signed_trx = w3.eth.account.sign_transaction(dict(
         nonce=nonce,
         gas=100000,       #100k Gas
-        gasPrice=900000000000,
+        maxFeePerGas = 900000000000,
+        maxPriorityFeePerGas = 900000000000,
+        #gasPrice=900000000000,
         to=Web3.to_checksum_address(toAdd),
         value=int(amount*10000*szabo*100), # .0001 EOS is 100 szabos
         data=b'',
         chainId=evmChainId
     ), evmSendKey)
+    Print("EVM transaction hash is: %s" % (Web3.to_hex(signed_trx.hash)))
     actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
     trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=False)
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
     row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
-    Utils.Print("\taccount row4: ", row4)
+    Utils.Print("\tverify balance from evm-rpc, account row4: ", row4)
     bal2 = w3.eth.get_balance(Web3.to_checksum_address("0x9E126C57330FA71556628e0aabd6B6B6783d99fA"))
 
     # balance different = 1.0 EOS (val) + 900(Gwei) (21000(base gas) + 36782 (gas for non-exist account) )
     assert(bal1 == bal2 + 1000000000000000000 + 900000000000 * (21000 + 36782))
+
+    Utils.Print("try to get transaction %s from evm-rpc" % (Web3.to_hex(signed_trx.hash)))
+    evm_tx = w3.eth.get_transaction(signed_trx.hash)
+    tx_dict = toDict(evm_tx)
+    Utils.Print("evm transaction is %s" % (json.dumps(tx_dict)))
+    assert(str(tx_dict["hash"]) == str(Web3.to_hex(signed_trx.hash)))
+
+    Utils.Print("try to get transaction receipt %s from evm-rpc" % (Web3.to_hex(signed_trx.hash)))
+    evm_tx = w3.eth.get_transaction_receipt(signed_trx.hash)
+    tx_dict = toDict(evm_tx)
+    Utils.Print("evm transaction receipt is %s" % (json.dumps(tx_dict)))
+    assert(str(tx_dict["transactionHash"]) == str(Web3.to_hex(signed_trx.hash)))
 
     # Wait 3 mins
     Utils.Print("Wait 3 mins")
