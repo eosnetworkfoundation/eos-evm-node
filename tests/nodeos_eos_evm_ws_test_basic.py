@@ -780,6 +780,8 @@ try:
     ws.close()
 
     testSuccessful= not foundErr
+except Exception as ex:
+    Utils.Print("Exception:" + str(ex))
 finally:
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
     if killEosInstances:
