@@ -89,6 +89,12 @@ evmRPCPOpen = None
 eosEvmMinerPOpen = None
 wsproxy = None
 
+def get_raw_transaction(signed_trx):
+    if hasattr(signed_trx, 'raw_transaction'):
+        return signed_trx.raw_transaction
+    else:
+        return signed_trx.rawTransaction
+
 def interact_with_storage_contract(dest, nonce):
     for i in range(1, 5): # execute a few
         Utils.Print("Execute ETH contract")
@@ -105,7 +111,7 @@ def interact_with_storage_contract(dest, nonce):
             chainId=evmChainId
         ), evmSendKey)
 
-        actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.raw_transaction)[2:]}
+        actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
         retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name))
         assert retValue[0], "pushtx to ETH contract failed."
         Utils.Print("\tBlock#", retValue[1]["processed"]["block_num"])
@@ -207,12 +213,6 @@ def makeReservedEvmAddress(account):
                c_uint8(account >>  8).value,
                c_uint8(account >>  0).value]
     return "0x" + bytes(bytearr).hex()
-
-def get_raw_transaction(signed_trx):
-    if hasattr(signed_trx, 'raw_transaction'):
-        return signed_trx.raw_transaction
-    else:
-        return signed_trx.rawTransaction
 
 try:
     TestHelper.printSystemInfo("BEGIN")
