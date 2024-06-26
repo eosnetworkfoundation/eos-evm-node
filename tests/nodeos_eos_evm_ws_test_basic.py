@@ -649,9 +649,10 @@ try:
     for line in lines:
         Utils.Print("wsStdOutlog:", line)
 
-    time.sleep(3.0)
+    time.sleep(10.0)
 
     ws = websocket.WebSocket()
+    Utils.Print("start to connect ws://127.0.0.1:3333")
     ws.connect("ws://127.0.0.1:3333", origin="nodeos_eos_evm_test.py")
     ws.send("{\"method\":\"eth_blockNumber\",\"params\":[\"0x1\",false],\"id\":123}")
     Utils.Print("send eth_blockNumber to websocket proxy")
