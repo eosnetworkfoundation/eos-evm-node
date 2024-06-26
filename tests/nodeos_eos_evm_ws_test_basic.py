@@ -208,6 +208,12 @@ def makeReservedEvmAddress(account):
                c_uint8(account >>  0).value]
     return "0x" + bytes(bytearr).hex()
 
+def get_raw_transaction(signed_trx):
+    if hasattr(signed_trx, 'raw_transaction'):
+        return signed_trx.raw_transaction
+    else:
+        return signed_trx.rawTransaction
+
 try:
     TestHelper.printSystemInfo("BEGIN")
 
@@ -359,7 +365,7 @@ try:
         chainId=evmChainId
     ), evmSendKey)
 
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.raw_transaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name))
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
 
@@ -385,7 +391,7 @@ try:
         chainId=evmChainId
     ), evmSendKey)
 
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.raw_transaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     Utils.Print("Send balance again, with correct nonce")
     retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     assert retValue[0], f"push trx should have succeeded: {retValue}"
@@ -404,7 +410,7 @@ try:
         chainId=evmChainId
     ), evmSendKey)
 
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.raw_transaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     Utils.Print("Send balance again, with invalid chainid")
     retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     assert not retValue[0], f"push trx should have failed: {retValue}"
@@ -437,7 +443,7 @@ try:
         chainId=evmChainId
     ), evmSendKey)
 
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.raw_transaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     assert retValue[0], f"push trx should have succeeded: {retValue}"
     contract_addr = makeContractAddress(fromAdd, nonce)
@@ -560,7 +566,7 @@ try:
         data=b'',
         chainId=evmChainId
     ), evmSendKey)
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.raw_transaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
     row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
