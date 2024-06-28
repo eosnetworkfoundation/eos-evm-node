@@ -57,6 +57,12 @@ from antelope_name import convert_name_to_value
 Print=Utils.Print
 errorExit=Utils.errorExit
 
+def get_raw_transaction(signed_trx):
+    if hasattr(signed_trx, 'raw_transaction'):
+        return signed_trx.raw_transaction
+    else:
+        return signed_trx.rawTransaction
+
 def analyzeBPs(bps0, bps1, expectDivergence):
     start=0
     index=None
@@ -198,7 +204,7 @@ def interact_with_storage_contract(dest, nonce):
             chainId=evmChainId
         ), evmSendKey)
 
-        actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+        actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
         retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name))
         assert retValue[0], "pushtx to ETH contract failed."
         Utils.Print("\tBlock#", retValue[1]["processed"]["block_num"])
@@ -483,7 +489,7 @@ try:
         chainId=evmChainId
     ), evmSendKey)
 
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name))
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
 
@@ -509,7 +515,7 @@ try:
         chainId=evmChainId
     ), evmSendKey)
 
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     Utils.Print("Send balance again, with correct nonce")
     retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     time.sleep(1.0)
@@ -529,7 +535,7 @@ try:
         chainId=evmChainId
     ), evmSendKey)
 
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     Utils.Print("Send balance again, with invalid chainid")
     retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     time.sleep(1.0)
@@ -562,7 +568,7 @@ try:
         data=Web3.to_bytes(hexstr='608060405234801561001057600080fd5b506101b6806100206000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c80632e64cec11461003b5780636057361d14610059575b600080fd5b610043610075565b604051610050919061013f565b60405180910390f35b610073600480360381019061006e9190610103565b61007e565b005b60008054905090565b806000819055503373ffffffffffffffffffffffffffffffffffffffff16600073ffffffffffffffffffffffffffffffffffffffff167fddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef836040516100e3919061013f565b60405180910390a350565b6000813590506100fd81610169565b92915050565b60006020828403121561011957610118610164565b5b6000610127848285016100ee565b91505092915050565b6101398161015a565b82525050565b60006020820190506101546000830184610130565b92915050565b6000819050919050565b600080fd5b6101728161015a565b811461017d57600080fd5b5056fea264697066735822122061ba78daf70a6edb2db7cbb1dbac434da1ba14ec0e009d4df8907b8c6ee4d63264736f6c63430008070033'),
         chainId=evmChainId
     ), evmSendKey)
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     time.sleep(1.0)
     assert retValue[0], f"push trx should have succeeded: {retValue}"
@@ -690,7 +696,7 @@ try:
         data=b'',
         chainId=evmChainId
     ), evmSendKey)
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     time.sleep(1.0)
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
@@ -776,10 +782,11 @@ try:
     for line in lines:
         Utils.Print("wsStdOutlog:", line)
 
-    time.sleep(3.0)
+    time.sleep(5.0)
 
     ws = websocket.WebSocket()
-    ws.connect("ws://127.0.0.1:3333", origin="nodeos_eos_evm_test.py")
+    Utils.Print("start to connect ws://localhost:3333")
+    ws.connect("ws://localhost:3333")
     ws.send("{\"method\":\"eth_blockNumber\",\"params\":[\"0x1\",false],\"id\":123}")
     Utils.Print("send eth_blockNumber to websocket proxy")
 
@@ -1080,6 +1087,8 @@ try:
     ws.close()
 
     testSuccessful= not foundErr
+except Exception as ex:
+    Utils.Print("Exception:" + str(ex))
 finally:
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
     if killEosInstances:
