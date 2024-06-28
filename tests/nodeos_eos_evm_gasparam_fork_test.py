@@ -713,8 +713,8 @@ try:
     Utils.Print("\taccount row4: ", row4)
 
     assert(row4["eth_address"] == "9e126c57330fa71556628e0aabd6b6b6783d99fa")
-    assert(row4["balance"] == "0000000000000000000000000000000000000000000000024c9336a8ead00600")
-    # diff = 2,897,785,000,000,000 = 2,897,785 (Gwei) = (100,000 + (165519 + 21000) * 15) (Gwei)
+    assert(row4["balance"] == "0000000000000000000000000000000000000000000000024c9c08bd58ca9000")
+    # diff = 415,000,000,000,000 = 415,000 (Gwei) = (100,000 + (21000) * 15) (Gwei)
     # {"ram_price_mb":"5.0000 EOS","gas_price":10000000000}
     # {'consensusParameter': AttributeDict({'gasFeeParameters': AttributeDict({'gasCodedeposit': 477, 'gasNewaccount': 165519, 'gasSset': 167942, 'gasTxcreate': 289062, 'gasTxnewaccount': 165519}
 
@@ -895,11 +895,11 @@ try:
     time.sleep(2)
 
     Utils.Print("Transfer funds to trigger gas parameter in minor fork")
-    # EVM -> EOS
+    # EVM -> EVM
     #   0x9E126C57330FA71556628e0aabd6B6B6783d99fA private key: 0xba8c9ff38e4179748925335a9891b969214b37dc3723a1754b8b849d3eea9ac0
-    toAdd = makeReservedEvmAddress(convert_name_to_value(bobAcc.name))
+    toAdd = 0x4ce0ca184bc155a5df5dae2f4643cba60eb1a9ed
     evmSendKey = "ba8c9ff38e4179748925335a9891b969214b37dc3723a1754b8b849d3eea9ac0"
-    Print("Transfer EVM->EOS funds 1Gwei from account %s to %s" % (evmAcc.name, bobAcc.name))
+    Print("Transfer EVM->EVM funds 1Gwei from account %s to %s" % (evmAcc.name, toAdd))
     nonce = 1
     gasP = getGasPrice()
     signed_trx = w3.eth.account.sign_transaction(dict(
@@ -921,7 +921,7 @@ try:
     Utils.Print("\taccount row4 in node0: ", row4)
 
     assert(row4["eth_address"] == "9e126c57330fa71556628e0aabd6b6b6783d99fa")
-    assert(row4["balance"] == "0000000000000000000000000000000000000000000000024c8724aef459cc00")
+    assert(row4["balance"] == "0000000000000000000000000000000000000000000000024c8ff6c362545600")
 
     # push the same transaction to node1's minor fork (prodc)
     trans = node1.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=False)
@@ -930,7 +930,7 @@ try:
     row4_node1=node1.getTableRow(evmAcc.name, evmAcc.name, "account", 4)
     Utils.Print("\taccount row4 in node1: ", row4_node1)
     assert(row4_node1["eth_address"] == "9e126c57330fa71556628e0aabd6b6b6783d99fa")
-    assert(row4_node1["balance"] == "0000000000000000000000000000000000000000000000024c88eb23c5408c00")
+    assert(row4_node1["balance"] == "0000000000000000000000000000000000000000000000024c91bd38333b1600")
     assert(row4["balance"] != row4_node1["balance"])
 
     # verify eos-evm-node get the new gas parameter from the minor fork
@@ -1035,7 +1035,7 @@ try:
     Utils.Print("\taccount row4 in node0: ", row4)
 
     assert(row4["eth_address"] == "9e126c57330fa71556628e0aabd6b6b6783d99fa")
-    assert(row4["balance"] == "0000000000000000000000000000000000000000000000024c88eb23c5408c00")
+    assert(row4["balance"] == "0000000000000000000000000000000000000000000000024c91bd38333b1600")
     assert(row4["balance"] == row4_node1["balance"])
 
     evm_block = w3.eth.get_block('latest')
