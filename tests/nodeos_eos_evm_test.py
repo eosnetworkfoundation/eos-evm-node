@@ -62,6 +62,18 @@ from antelope_name import convert_name_to_value
 Print=Utils.Print
 errorExit=Utils.errorExit
 
+def get_raw_transaction(signed_trx):
+    if hasattr(signed_trx, 'raw_transaction'):
+        return signed_trx.raw_transaction
+    else:
+        return get_raw_transaction(signed_trx)
+
+def prefix_0x(hexstr):
+    if not hexstr[:2] == '0x':
+        return "0x" + hexstr
+    else:
+        return hexstr
+
 appArgs=AppArgs()
 appArgs.add(flag="--eos-evm-contract-root", type=str, help="EOS EVM contract build dir", default=None)
 appArgs.add(flag="--eos-evm-build-root", type=str, help="EOS EVM build dir", default=None)
@@ -111,7 +123,7 @@ def interact_with_storage_contract(dest, nonce):
             chainId=evmChainId
         ), evmSendKey)
 
-        actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+        actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
         retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name))
         assert retValue[0], "pushtx to ETH contract failed."
         Utils.Print("\tBlock#", retValue[1]["processed"]["block_num"])
@@ -431,7 +443,7 @@ try:
         chainId=evmChainId
     ), evmSendKey)
 
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name))
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
 
@@ -457,7 +469,7 @@ try:
         chainId=evmChainId
     ), evmSendKey)
 
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     Utils.Print("Send balance again, with correct nonce")
     retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     assert retValue[0], f"push trx should have succeeded: {retValue}"
@@ -476,7 +488,7 @@ try:
         chainId=evmChainId
     ), evmSendKey)
 
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     Utils.Print("Send balance again, with invalid chainid")
     retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     assert not retValue[0], f"push trx should have failed: {retValue}"
@@ -508,7 +520,7 @@ try:
         chainId=evmChainId
     ), evmSendKey)
 
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     assert retValue[0], f"push trx should have succeeded: {retValue}"
     nonce = interact_with_storage_contract(makeContractAddress(fromAdd, nonce), nonce)
@@ -633,7 +645,7 @@ try:
         data=b'',
         chainId=evmChainId
     ), evmSendKey)
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
     row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
@@ -666,7 +678,7 @@ try:
         data=b'',
         chainId=evmChainId
     ), evmSendKey)
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
     row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
@@ -720,7 +732,7 @@ try:
 
     # Deploy "Increment" contract
     increment_contract = makeContractAddress(accSpecialAdd, special_nonce)
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     prodNode.waitForTransBlockIfNeeded(trans[1], True);
 
@@ -735,7 +747,7 @@ try:
         chainId=15555
     ), accSpecialKey)
 
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=False)
     prodNode.waitForTransBlockIfNeeded(trans[1], True);
 
@@ -793,7 +805,7 @@ try:
         data=b'',
         chainId=evmChainId
     ), evmSendKey)
-    actData = {"recipient":defertestAcc.name, "account":evmAcc.name, "miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:], "rlptx2":Web3.to_hex(signed_trx2.rawTransaction)[2:]}
+    actData = {"recipient":defertestAcc.name, "account":evmAcc.name, "miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:], "rlptx2":Web3.to_hex(get_raw_transaction(signed_trx2))[2:]}
     trans = prodNode.pushMessage(defertest2Acc.name, "notifytest", json.dumps(actData), '-p {0}'.format(defertest2Acc.name), silentErrors=False)
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
     row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
@@ -911,6 +923,7 @@ try:
     b = get_block("latest")
     assert(b["baseFeePerGas"] == "0x2540be400")
 
+    # --------------------------------------------
     # EVM -> EOS
     #   0x9E126C57330FA71556628e0aabd6B6B6783d99fA private key: 0xba8c9ff38e4179748925335a9891b969214b37dc3723a1754b8b849d3eea9ac0
     toAdd = makeReservedEvmAddress(convert_name_to_value(aliceAcc.name))
@@ -918,8 +931,19 @@ try:
     amount=1.0000
     transferAmount="1.0000 {0}".format(CORE_SYMBOL)
     bal1 = w3.eth.get_balance(Web3.to_checksum_address("0x9E126C57330FA71556628e0aabd6B6B6783d99fA"))
-    Print("Using new gas param, transfer EVM->EOS funds %s from account %s to new account" % (transferAmount, evmAcc.name))
+    Print("Using new gas param, transfer funds %s from account %s to reserved account (EVM->EOS)" % (transferAmount, evmAcc.name))
     nonce = nonce + 1
+    estimate_tx = {
+        'from': Web3.to_checksum_address("0x9E126C57330FA71556628e0aabd6B6B6783d99fA"),
+        'gas':100000,
+        'maxFeePerGas':900000000000,
+        'maxPriorityFeePerGas': 900000000000,
+        'to':Web3.to_checksum_address(toAdd),
+        'value':int(amount*10000*szabo*100), # .0001 EOS is 100 szabos
+        'data':b'',
+        'chainId':evmChainId
+    }
+    assert(w3.eth.estimate_gas(estimate_tx) == 21000)
     signed_trx = w3.eth.account.sign_transaction(dict(
         nonce=nonce,
         gas=100000,       #100k Gas
@@ -932,7 +956,7 @@ try:
         chainId=evmChainId
     ), evmSendKey)
     Print("EVM transaction hash is: %s" % (Web3.to_hex(signed_trx.hash)))
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=False)
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
     row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
@@ -946,13 +970,75 @@ try:
     evm_tx = w3.eth.get_transaction(signed_trx.hash)
     tx_dict = toDict(evm_tx)
     Utils.Print("evm transaction is %s" % (json.dumps(tx_dict)))
-    assert(str(tx_dict["hash"]) == str(Web3.to_hex(signed_trx.hash)))
+    assert(prefix_0x(str(tx_dict["hash"])) == str(Web3.to_hex(signed_trx.hash)))
 
     Utils.Print("try to get transaction receipt %s from evm-rpc" % (Web3.to_hex(signed_trx.hash)))
     evm_tx = w3.eth.get_transaction_receipt(signed_trx.hash)
     tx_dict = toDict(evm_tx)
     Utils.Print("evm transaction receipt is %s" % (json.dumps(tx_dict)))
-    assert(str(tx_dict["transactionHash"]) == str(Web3.to_hex(signed_trx.hash)))
+    assert(prefix_0x(str(tx_dict["transactionHash"])) == str(Web3.to_hex(signed_trx.hash)))
+
+    validate_all_balances() # validate balances between native & EVM
+
+    # --------------------------------------------
+    # EVM -> EVM 
+    # 1st time EVM->EVM (new address)
+    # 2nd time EVM->EVM (existing address)
+    for i in range(0,2):
+        evmSendKey = "ba8c9ff38e4179748925335a9891b969214b37dc3723a1754b8b849d3eea9ac0"
+        amount=1.0000
+        transferAmount="1.0000 {0}".format(CORE_SYMBOL)
+        bal1 = w3.eth.get_balance(Web3.to_checksum_address("0x9E126C57330FA71556628e0aabd6B6B6783d99fA"))
+        Print("Using new gas param, transfer %s from account %s to EVM account (EVM->EVM)" % (transferAmount, evmAcc.name))
+        nonce = nonce + 1
+        estimate_tx = {
+            'from': Web3.to_checksum_address("0x9E126C57330FA71556628e0aabd6B6B6783d99fA"),
+            'gas':100000,
+            'maxFeePerGas':900000000000,
+            'maxPriorityFeePerGas': 900000000000,
+            'to':Web3.to_checksum_address("0x9E126C57330FA71556628e0aabd6B6B6783d99fB"),
+            'value':int(amount*10000*szabo*100), # .0001 EOS is 100 szabos
+            'data':b'',
+            'chainId':evmChainId
+        }
+        Utils.Print("estimate_gas is {}".format(w3.eth.estimate_gas(estimate_tx)))
+        assert(w3.eth.estimate_gas(estimate_tx) == 21000 + (1 - i) * 36782)
+        signed_trx = w3.eth.account.sign_transaction(dict(
+            nonce=nonce,
+            gas=100000,       #100k Gas
+            maxFeePerGas = 900000000000,
+            maxPriorityFeePerGas = 900000000000,
+            #gasPrice=900000000000,
+            to=Web3.to_checksum_address("0x9E126C57330FA71556628e0aabd6B6B6783d99fB"),
+            value=int(amount*10000*szabo*100), # .0001 EOS is 100 szabos
+            data=b'',
+            chainId=evmChainId
+        ), evmSendKey)
+        Print("EVM transaction hash is: %s" % (Web3.to_hex(signed_trx.hash)))
+        actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
+        trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=False)
+        prodNode.waitForTransBlockIfNeeded(trans[1], True)
+        row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
+        Utils.Print("\tverify balance from evm-rpc, account row4: ", row4)
+        bal2 = w3.eth.get_balance(Web3.to_checksum_address("0x9E126C57330FA71556628e0aabd6B6B6783d99fA"))
+
+        # balance different = 1.0 EOS (val) + 900(Gwei) (21000(base gas) + 36782 or 0)
+        assert(bal1 == bal2 + 1000000000000000000 + 900000000000 * (21000 + (1 - i) * 36782))
+
+        Utils.Print("try to get transaction %s from evm-rpc" % (Web3.to_hex(signed_trx.hash)))
+        evm_tx = w3.eth.get_transaction(signed_trx.hash)
+        tx_dict = toDict(evm_tx)
+        Utils.Print("evm transaction is %s" % (json.dumps(tx_dict)))
+        assert(prefix_0x(str(tx_dict["hash"])) == str(Web3.to_hex(signed_trx.hash)))
+
+        Utils.Print("try to get transaction receipt %s from evm-rpc" % (Web3.to_hex(signed_trx.hash)))
+        evm_tx = w3.eth.get_transaction_receipt(signed_trx.hash)
+        tx_dict = toDict(evm_tx)
+        Utils.Print("evm transaction receipt is %s" % (json.dumps(tx_dict)))
+        assert(prefix_0x(str(tx_dict["transactionHash"])) == str(Web3.to_hex(signed_trx.hash)))
+
+        if i == 0:
+            validate_all_balances() # validate balances between native & EVM
 
     # Wait 3 mins
     Utils.Print("Wait 3 mins")
