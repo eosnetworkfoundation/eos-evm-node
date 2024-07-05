@@ -939,8 +939,8 @@ try:
     Utils.Print("\tverify balance from evm-rpc, account row4: ", row4)
     bal2 = w3.eth.get_balance(Web3.to_checksum_address("0x9E126C57330FA71556628e0aabd6B6B6783d99fA"))
 
-    # balance different = 1.0 EOS (val) + 900(Gwei) (21000(base gas) + 36782 (gas for non-exist account) )
-    assert(bal1 == bal2 + 1000000000000000000 + 900000000000 * (21000 + 36782))
+    # balance different = 1.0 EOS (val) + 900(Gwei) (21000(base gas))
+    assert(bal1 == bal2 + 1000000000000000000 + 900000000000 * 21000)
 
     Utils.Print("try to get transaction %s from evm-rpc" % (Web3.to_hex(signed_trx.hash)))
     evm_tx = w3.eth.get_transaction(signed_trx.hash)
