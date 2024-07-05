@@ -66,7 +66,7 @@ def get_raw_transaction(signed_trx):
     if hasattr(signed_trx, 'raw_transaction'):
         return signed_trx.raw_transaction
     else:
-        return get_raw_transaction(signed_trx)
+        return signed_trx.rawTransaction
 
 def prefix_0x(hexstr):
     if not hexstr[:2] == '0x':
