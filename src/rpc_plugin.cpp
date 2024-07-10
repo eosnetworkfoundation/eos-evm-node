@@ -39,7 +39,7 @@ void rpc_plugin::set_program_options( appbase::options_description& cli, appbase
         "maximum number of rpc readers")
       ("api-spec", boost::program_options::value<std::string>()->default_value("eth"),
         "comma separated api spec, possible values: debug,engine,eth,net,parity,erigon,txpool,trace,web3")
-      ("chain-id", boost::program_options::value<uint32_t>()->default_value(silkworm::kEOSEVMLocalTestnetConfig.chain_id),
+      ("chain-id", boost::program_options::value<uint32_t>()->default_value(25555),
         "override chain-id")
       ("rpc-quirk-flag", boost::program_options::value<uint64_t>()->default_value(0),
         "rpc quirk flag")
