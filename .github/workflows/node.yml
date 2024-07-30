@@ -240,8 +240,8 @@ jobs:
           owner: AntelopeIO
           repo: cdt
           file: 'cdt_.*amd64.deb'
-          target: '${{steps.versions.outputs.cdt-target}}'
-          prereleases: ${{fromJSON(steps.versions.outputs.cdt-prerelease)}}
+          target: '${{needs.versions.outputs.cdt-target}}'
+          prereleases: ${{fromJSON(needs.versions.outputs.cdt-prerelease)}}
           artifact-name: cdt_ubuntu_package_amd64
 
       - name: Download antelope-spring-dev
@@ -250,8 +250,8 @@ jobs:
           owner: AntelopeIO
           repo: spring
           file: 'antelope-spring-dev.*ubuntu22\.04_amd64.deb'
-          target: '${{steps.versions.outputs.antelope-spring-dev-target}}'
-          prereleases: ${{fromJSON(steps.versions.outputs.antelope-spring-dev-prerelease)}}
+          target: '${{needs.versions.outputs.antelope-spring-dev-target}}'
+          prereleases: ${{fromJSON(needs.versions.outputs.antelope-spring-dev-prerelease)}}
           artifact-name: antelope-spring-dev-ubuntu22-amd64
           container-package: antelope-spring-experimental-binaries
 
