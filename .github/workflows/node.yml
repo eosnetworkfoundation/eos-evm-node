@@ -153,6 +153,8 @@ jobs:
     name: Determine Versions
     runs-on: ubuntu-latest
     outputs:
+      antelope-spring-dev-target: ${{steps.versions.outputs.antelope-spring-dev-target}}
+      antelope-spring-dev-prerelease: ${{steps.versions.outputs.antelope-spring-dev-prerelease}}
       leap-dev-target: ${{steps.versions.outputs.leap-dev-target}}
       leap-dev-prerelease: ${{steps.versions.outputs.leap-dev-prerelease}}
       leap-target: ${{steps.versions.outputs.leap-target}}
@@ -169,6 +171,8 @@ jobs:
           GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
         run: |
           DEFAULTS_JSON=$(curl -sSfL $(gh api https://api.github.com/repos/${{github.repository}}/contents/.cicd/defaults.json?ref=${{github.sha}} --jq .download_url))
+          echo antelope-spring-dev-target=$(echo "$DEFAULTS_JSON" | jq -r '."antelope-spring-dev".target') >> $GITHUB_OUTPUT
+          echo antelope-spring-dev-prerelease=$(echo "$DEFAULTS_JSON" | jq -r '."antelope-spring-dev".prerelease') >> $GITHUB_OUTPUT
           echo leap-dev-target=$(echo "$DEFAULTS_JSON" | jq -r '."leap-dev".target') >> $GITHUB_OUTPUT
           echo leap-dev-prerelease=$(echo "$DEFAULTS_JSON" | jq -r '."leap-dev".prerelease') >> $GITHUB_OUTPUT
           echo leap-target=$(echo "$DEFAULTS_JSON" | jq -r '."leap".target') >> $GITHUB_OUTPUT
@@ -230,48 +234,36 @@ jobs:
           apt update
           apt upgrade -y
 
-      - name: Download CDT
+      - name: Download cdt
         uses: AntelopeIO/asset-artifact-download-action@v3
         with:
           owner: AntelopeIO
           repo: cdt
-          target: '${{needs.versions.outputs.cdt-target}}'
-          prereleases: ${{fromJSON(needs.versions.outputs.cdt-prerelease)}}
           file: 'cdt_.*amd64.deb'
-          token: ${{ secrets.GITHUB_TOKEN }}
+          target: '${{steps.versions.outputs.cdt-target}}'
+          prereleases: ${{fromJSON(steps.versions.outputs.cdt-prerelease)}}
+          artifact-name: cdt_ubuntu_package_amd64
 
-      - name: Install CDT
-        run: apt-get install -y ./cdt*.deb
-
-      - name: Download leap-dev binary
+      - name: Download antelope-spring-dev
         uses: AntelopeIO/asset-artifact-download-action@v3
         with:
           owner: AntelopeIO
-          repo: leap
-          target: '${{needs.versions.outputs.leap-dev-target}}'
-          prereleases: ${{fromJSON(needs.versions.outputs.leap-dev-prerelease)}}
-          file: 'leap-dev.*ubuntu22\.04_amd64.deb'
-          container-package: experimental-binaries
-          artifact-name: leap-dev-ubuntu22-amd64
-          token: ${{ secrets.GITHUB_TOKEN }}
+          repo: spring
+          file: 'antelope-spring-dev.*ubuntu22\.04_amd64.deb'
+          target: '${{steps.versions.outputs.antelope-spring-dev-target}}'
+          prereleases: ${{fromJSON(steps.versions.outputs.antelope-spring-dev-prerelease)}}
+          artifact-name: antelope-spring-dev-ubuntu22-amd64
+          container-package: antelope-spring-experimental-binaries
 
-      - name: Download leap binary
-        uses: AntelopeIO/asset-artifact-download-action@v3
-        with:
-          owner: AntelopeIO
-          repo: leap
-          target: '${{needs.versions.outputs.leap-target}}'
-          prereleases: ${{fromJSON(needs.versions.outputs.leap-prerelease)}}
-          file: 'leap_.*_amd64.deb'
-          artifact-name: leap-deb-amd64
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install Leap
+      - name: Install packages
         run: |
-          apt-get install -y ./leap*.deb
+          sudo apt-get update && sudo apt-get upgrade -y
+          sudo apt install ./*.deb
+          sudo apt-get install cmake
+          rm ./*.deb
 
-      - name: Link Leap TestHarness Module (fix for v4 of leap)
-        run: ln -s /usr/share/leap_testing/tests/TestHarness /usr/lib/python3/dist-packages/TestHarness
+      - name: Link Spring TestHarness Module
+        run: ln -s /usr/share/spring_testing/tests/TestHarness /usr/lib/python3/dist-packages/TestHarness
 
       - name: Download EOS EVM Contract
         uses: AntelopeIO/asset-artifact-download-action@v3

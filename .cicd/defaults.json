@@ -1,4 +1,8 @@
 {
+   "antelope-spring-dev":{
+      "target":"main",
+      "prerelease":false
+   },
    "leap-dev":{
       "target":"5",
       "prerelease":false
