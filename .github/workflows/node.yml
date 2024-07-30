@@ -258,8 +258,8 @@ jobs:
       - name: Install packages
         run: |
           apt-get update && apt-get upgrade -y
-          apt install ./*.deb
-          apt-get install cmake
+          apt install -y ./*.deb
+          apt-get install -y cmake
           rm ./*.deb
 
       - name: Link Spring TestHarness Module
