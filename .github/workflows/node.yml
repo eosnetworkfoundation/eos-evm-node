@@ -255,6 +255,16 @@ jobs:
           artifact-name: antelope-spring-dev-ubuntu22-amd64
           container-package: antelope-spring-experimental-binaries
 
+      - name: Download antelope-spring binary
+        uses: AntelopeIO/asset-artifact-download-action@v3
+        with:
+          owner: AntelopeIO
+          repo: spring
+          file: 'antelope-spring_.*_amd64.deb'
+          target: '${{needs.versions.outputs.antelope-spring-dev-target}}'
+          prereleases: ${{fromJSON(needs.versions.outputs.antelope-spring-dev-prerelease)}}
+          artifact-name: antelope-spring-deb-amd64
+
       - name: Install packages
         run: |
           apt-get update && apt-get upgrade -y
