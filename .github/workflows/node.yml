@@ -261,6 +261,11 @@ jobs:
           apt install -y ./*.deb
           apt-get install -y cmake
           rm ./*.deb
+          echo "=== after install packages ==="
+          ls -ltr /usr
+          ls -ltr /usr/bin/
+          ls -ltr /usr/lib/
+          ls -ltr /usr/share/
 
       - name: Link Spring TestHarness Module
         run: ln -s /usr/share/spring_testing/tests/TestHarness /usr/lib/python3/dist-packages/TestHarness
