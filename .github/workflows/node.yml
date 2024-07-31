@@ -266,6 +266,10 @@ jobs:
           ls -ltr /usr/bin/
           ls -ltr /usr/lib/
           ls -ltr /usr/share/
+          echo "=== files in /usr/share/spring_testing ==="
+          ls -ltr /usr/share/spring_testing/
+          echo "=== files in /usr/share/spring_testing/bin ==="
+          ls -ltr /usr/share/spring_testing/bin/
 
       - name: Link Spring TestHarness Module
         run: ln -s /usr/share/spring_testing/tests/TestHarness /usr/lib/python3/dist-packages/TestHarness
