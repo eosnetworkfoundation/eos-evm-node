@@ -1056,6 +1056,13 @@ try:
     # Validate all balances (check evmtx event)
     validate_all_balances()
 
+    sys.stdout.flush() 
+    sys.stderr.flush()
+
+    Utils.Print("checking %s for errors" % (nodeStdErrDir))
+    sys.stdout.flush() 
+    sys.stderr.flush()
+
     foundErr = False
     stdErrFile = open(nodeStdErrDir, "r")
     lines = stdErrFile.readlines()
@@ -1063,6 +1070,10 @@ try:
         if line.find("ERROR") != -1 or line.find("CRIT") != -1:
             Utils.Print("  Found ERROR in EOS EVM NODE log: ", line)
             foundErr = True
+
+    Utils.Print("checking %s for errors" % (rpcStdErrDir))
+    sys.stdout.flush() 
+    sys.stderr.flush()
 
     stdErrFile = open(rpcStdErrDir, "r")
     lines = stdErrFile.readlines()
@@ -1072,9 +1083,24 @@ try:
             foundErr = True
 
     testSuccessful= not foundErr
+
+    if testSuccessful:
+        Utils.Print("test success, ready to shut down cluster")
+    else:
+        Utils.Print("test failed, ready to shut down cluster")
+
+    sys.stdout.flush() 
+    sys.stderr.flush()
 finally:
+    Utils.Print("test success, shutting down cluster")
+    sys.stdout.flush() 
+    sys.stderr.flush()
+
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
     if killEosInstances:
+        Utils.Print("killing EOS instances")
+        sys.stdout.flush() 
+        sys.stderr.flush()
         if evmNodePOpen is not None:
             evmNodePOpen.kill()
         if evmRPCPOpen is not None:
