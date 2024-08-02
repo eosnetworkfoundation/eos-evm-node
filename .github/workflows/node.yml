@@ -8,26 +8,6 @@ on:
   pull_request:
   workflow_dispatch:
     inputs:
-      override-leap-dev:
-        description: Override leap-dev target
-        type: string
-      override-leap-dev-prerelease:
-        type: choice
-        description: Override leap-dev prelease
-        options:
-        - default
-        - true
-        - false
-      override-leap:
-        description: Override leap target
-        type: string
-      override-leap-prerelease:
-        type: choice
-        description: Override leap prelease
-        options:
-        - default
-        - true
-        - false
       override-cdt:
         description: 'Override cdt target'
         type: string
@@ -155,10 +135,6 @@ jobs:
     outputs:
       antelope-spring-dev-target: ${{steps.versions.outputs.antelope-spring-dev-target}}
       antelope-spring-dev-prerelease: ${{steps.versions.outputs.antelope-spring-dev-prerelease}}
-      leap-dev-target: ${{steps.versions.outputs.leap-dev-target}}
-      leap-dev-prerelease: ${{steps.versions.outputs.leap-dev-prerelease}}
-      leap-target: ${{steps.versions.outputs.leap-target}}
-      leap-prerelease: ${{steps.versions.outputs.leap-prerelease}}
       cdt-target: ${{steps.versions.outputs.cdt-target}}
       cdt-prerelease: ${{steps.versions.outputs.cdt-prerelease}}
       eos-evm-contract-target: ${{steps.versions.outputs.eos-evm-contract-target}}
@@ -173,28 +149,12 @@ jobs:
           DEFAULTS_JSON=$(curl -sSfL $(gh api https://api.github.com/repos/${{github.repository}}/contents/.cicd/defaults.json?ref=${{github.sha}} --jq .download_url))
           echo antelope-spring-dev-target=$(echo "$DEFAULTS_JSON" | jq -r '."antelope-spring-dev".target') >> $GITHUB_OUTPUT
           echo antelope-spring-dev-prerelease=$(echo "$DEFAULTS_JSON" | jq -r '."antelope-spring-dev".prerelease') >> $GITHUB_OUTPUT
-          echo leap-dev-target=$(echo "$DEFAULTS_JSON" | jq -r '."leap-dev".target') >> $GITHUB_OUTPUT
-          echo leap-dev-prerelease=$(echo "$DEFAULTS_JSON" | jq -r '."leap-dev".prerelease') >> $GITHUB_OUTPUT
-          echo leap-target=$(echo "$DEFAULTS_JSON" | jq -r '."leap".target') >> $GITHUB_OUTPUT
-          echo leap-prerelease=$(echo "$DEFAULTS_JSON" | jq -r '."leap".prerelease') >> $GITHUB_OUTPUT
           echo cdt-target=$(echo "$DEFAULTS_JSON" | jq -r '."cdt".target') >> $GITHUB_OUTPUT
           echo cdt-prerelease=$(echo "$DEFAULTS_JSON" | jq -r '."cdt".prerelease') >> $GITHUB_OUTPUT
           echo eos-evm-contract-target=$(echo "$DEFAULTS_JSON" | jq -r '."eos-evm-contract".target') >> $GITHUB_OUTPUT
           echo eos-evm-contract-prerelease=$(echo "$DEFAULTS_JSON" | jq -r '."eos-evm-contract".prerelease') >> $GITHUB_OUTPUT
           echo eos-evm-miner-target=$(echo "$DEFAULTS_JSON" | jq -r '."eos-evm-miner".target') >> $GITHUB_OUTPUT
 
-          if [[ "${{inputs.override-leap-dev}}" != "" ]]; then
-            echo leap-dev-target=${{inputs.override-leap-dev}} >> $GITHUB_OUTPUT
-          fi
-          if [[ "${{inputs.override-leap-dev-prerelease}}" == +(true|false) ]]; then
-            echo leap-dev-prerelease=${{inputs.override-leap-dev-prerelease}} >> $GITHUB_OUTPUT
-          fi
-          if [[ "${{inputs.override-leap}}" != "" ]]; then
-            echo leap-target=${{inputs.override-leap}} >> $GITHUB_OUTPUT
-          fi
-          if [[ "${{inputs.override-leap-prerelease}}" == +(true|false) ]]; then
-            echo leap-prerelease=${{inputs.override-leap-prerelease}} >> $GITHUB_OUTPUT
-          fi
           if [[ "${{inputs.override-cdt}}" != "" ]]; then
             echo cdt-target=${{inputs.override-cdt}} >> $GITHUB_OUTPUT
           fi
@@ -448,11 +408,11 @@ jobs:
       - name: Prepare Logs
         if: failure()
         run: |
-          tar -czf leap-int-test-logs.tar.gz test_run_root/* ws_test_run_root/*
+          tar -czf sprint-int-test-logs.tar.gz test_run_root/* ws_test_run_root/*
 
       - name: Upload logs from failed tests
         uses: actions/upload-artifact@v3
         if: failure()
         with:
-          name: leap-int-test-logs.tar.gz
-          path: leap-int-test-logs.tar.gz
+          name: spring-int-test-logs.tar.gz
+          path: spring-int-test-logs.tar.gz
