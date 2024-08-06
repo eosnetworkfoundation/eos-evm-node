@@ -1056,6 +1056,7 @@ try:
     # Validate all balances (check evmtx event)
     validate_all_balances()
 
+    Utils.Print("checking %s for errors" % (nodeStdErrDir))
     foundErr = False
     stdErrFile = open(nodeStdErrDir, "r")
     lines = stdErrFile.readlines()
@@ -1064,6 +1065,7 @@ try:
             Utils.Print("  Found ERROR in EOS EVM NODE log: ", line)
             foundErr = True
 
+    Utils.Print("checking %s for errors" % (rpcStdErrDir))
     stdErrFile = open(rpcStdErrDir, "r")
     lines = stdErrFile.readlines()
     for line in lines:
@@ -1072,9 +1074,16 @@ try:
             foundErr = True
 
     testSuccessful= not foundErr
+    if testSuccessful:
+        Utils.Print("test success, ready to shut down cluster")
+    else:
+        Utils.Print("test failed, ready to shut down cluster")
+
 finally:
+    Utils.Print("test success, shutting down cluster")
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
     if killEosInstances:
+        Utils.Print("killing EOS instances")
         if evmNodePOpen is not None:
             evmNodePOpen.kill()
         if evmRPCPOpen is not None:
