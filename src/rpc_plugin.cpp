@@ -36,7 +36,8 @@ void rpc_plugin::set_program_options( appbase::options_description& cli, appbase
         "number of threads for use with rpc")
       ("chaindata", boost::program_options::value<std::string>()->default_value("./"),
         "directory of chaindata")
-      ("rpc-max-readers", boost::program_options::value<uint32_t>()->default_value(16),
+      // use the value of silkworm::rpc::kDatabaseMaxReaders so we have the same setting between and after the fix
+      ("rpc-max-readers", boost::program_options::value<uint32_t>()->default_value(32000),
         "maximum number of rpc readers")
       ("api-spec", boost::program_options::value<std::string>()->default_value("eth"),
         "comma separated api spec, possible values: debug,engine,eth,net,parity,erigon,txpool,trace,web3")
@@ -87,31 +88,6 @@ void rpc_plugin::plugin_initialize( const appbase::variables_map& options ) try 
    const auto& data_dir   = options.at("chaindata").as<std::string>();
 
    auto log_level = appbase::app().get_plugin<sys_plugin>().get_verbosity();
-   using evmc::operator""_bytes32;
-   
-   uint32_t chain_id = options.at("chain-id").as<uint32_t>();
-   const auto chain_info = silkworm::lookup_known_chain(chain_id);
-   if (!chain_info) {
-      throw std::runtime_error{"unknown chain ID: " + std::to_string(chain_id)};
-   }
-   silkworm::ChainConfig config = *(chain_info->second);
-   
-   silkworm::NodeSettings node_settings;
-   node_settings.data_directory = std::make_unique<silkworm::DataDirectory>(data_dir, false);
-   node_settings.network_id = config.chain_id;
-   node_settings.etherbase  = silkworm::to_evmc_address(silkworm::from_hex("").value()); // TODO determine etherbase name
-   node_settings.chaindata_env_config = {node_settings.data_directory->chaindata().path().string(), false, true, false, false, true};
-
-   //  bool create{false};          // Whether db file must be created
-   //  bool readonly{false};        // Whether db should be opened in RO mode
-   //  bool exclusive{false};       // Whether this process has exclusive access
-   //  bool inmemory{false};        // Whether this db is in memory
-   //  bool shared{false};          // Whether this process opens a db already opened by another process
-   //  bool read_ahead{false};      // Whether to enable mdbx read ahead
-   //  bool write_map{false};       // Whether to enable mdbx write map
-
-   node_settings.chaindata_env_config.max_readers = max_readers;
-   node_settings.chain_config = config;
 
    silkworm::log::Settings log_settings{
       .log_verbosity = log_level
@@ -129,7 +105,8 @@ void rpc_plugin::plugin_initialize( const appbase::variables_map& options ) try 
       .private_api_addr      = node_port,
       .num_workers           = threads,
       .skip_protocol_check   = true,
-      .rpc_quirk_flag        = rpc_quirk_flag
+      .rpc_quirk_flag        = rpc_quirk_flag,
+      .max_readers           = max_readers
    };
 
    my.reset(new rpc_plugin_impl(settings));
