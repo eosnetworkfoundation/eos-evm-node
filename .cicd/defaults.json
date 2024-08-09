@@ -8,7 +8,7 @@
       "prerelease":false
    },
    "eos-evm-contract":{
-      "target":"main",
+      "target":"release/1.0",
       "prerelease":false
    },
    "eos-evm-miner":{
