@@ -89,6 +89,12 @@ evmRPCPOpen = None
 eosEvmMinerPOpen = None
 wsproxy = None
 
+def get_raw_transaction(signed_trx):
+    if hasattr(signed_trx, 'raw_transaction'):
+        return signed_trx.raw_transaction
+    else:
+        return signed_trx.rawTransaction
+
 def interact_with_storage_contract(dest, nonce):
     for i in range(1, 5): # execute a few
         Utils.Print("Execute ETH contract")
@@ -105,7 +111,7 @@ def interact_with_storage_contract(dest, nonce):
             chainId=evmChainId
         ), evmSendKey)
 
-        actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+        actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
         retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name))
         assert retValue[0], "pushtx to ETH contract failed."
         Utils.Print("\tBlock#", retValue[1]["processed"]["block_num"])
@@ -359,7 +365,7 @@ try:
         chainId=evmChainId
     ), evmSendKey)
 
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name))
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
 
@@ -385,7 +391,7 @@ try:
         chainId=evmChainId
     ), evmSendKey)
 
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     Utils.Print("Send balance again, with correct nonce")
     retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     assert retValue[0], f"push trx should have succeeded: {retValue}"
@@ -404,7 +410,7 @@ try:
         chainId=evmChainId
     ), evmSendKey)
 
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     Utils.Print("Send balance again, with invalid chainid")
     retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     assert not retValue[0], f"push trx should have failed: {retValue}"
@@ -437,7 +443,7 @@ try:
         chainId=evmChainId
     ), evmSendKey)
 
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     assert retValue[0], f"push trx should have succeeded: {retValue}"
     contract_addr = makeContractAddress(fromAdd, nonce)
@@ -560,7 +566,7 @@ try:
         data=b'',
         chainId=evmChainId
     ), evmSendKey)
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
     row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
@@ -643,10 +649,11 @@ try:
     for line in lines:
         Utils.Print("wsStdOutlog:", line)
 
-    time.sleep(3.0)
+    time.sleep(5.0)
 
     ws = websocket.WebSocket()
-    ws.connect("ws://127.0.0.1:3333", origin="nodeos_eos_evm_test.py")
+    Utils.Print("start to connect ws://localhost:3333")
+    ws.connect("ws://localhost:3333")
     ws.send("{\"method\":\"eth_blockNumber\",\"params\":[\"0x1\",false],\"id\":123}")
     Utils.Print("send eth_blockNumber to websocket proxy")
 
@@ -774,6 +781,8 @@ try:
     ws.close()
 
     testSuccessful= not foundErr
+except Exception as ex:
+    Utils.Print("Exception:" + str(ex))
 finally:
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
     if killEosInstances:
