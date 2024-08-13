@@ -8,26 +8,6 @@ on:
   pull_request:
   workflow_dispatch:
     inputs:
-      override-leap-dev:
-        description: Override leap-dev target
-        type: string
-      override-leap-dev-prerelease:
-        type: choice
-        description: Override leap-dev prelease
-        options:
-        - default
-        - true
-        - false
-      override-leap:
-        description: Override leap target
-        type: string
-      override-leap-prerelease:
-        type: choice
-        description: Override leap prelease
-        options:
-        - default
-        - true
-        - false
       override-cdt:
         description: 'Override cdt target'
         type: string
@@ -153,10 +133,8 @@ jobs:
     name: Determine Versions
     runs-on: ubuntu-latest
     outputs:
-      leap-dev-target: ${{steps.versions.outputs.leap-dev-target}}
-      leap-dev-prerelease: ${{steps.versions.outputs.leap-dev-prerelease}}
-      leap-target: ${{steps.versions.outputs.leap-target}}
-      leap-prerelease: ${{steps.versions.outputs.leap-prerelease}}
+      antelope-spring-dev-target: ${{steps.versions.outputs.antelope-spring-dev-target}}
+      antelope-spring-dev-prerelease: ${{steps.versions.outputs.antelope-spring-dev-prerelease}}
       cdt-target: ${{steps.versions.outputs.cdt-target}}
       cdt-prerelease: ${{steps.versions.outputs.cdt-prerelease}}
       eos-evm-contract-target: ${{steps.versions.outputs.eos-evm-contract-target}}
@@ -169,28 +147,14 @@ jobs:
           GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
         run: |
           DEFAULTS_JSON=$(curl -sSfL $(gh api https://api.github.com/repos/${{github.repository}}/contents/.cicd/defaults.json?ref=${{github.sha}} --jq .download_url))
-          echo leap-dev-target=$(echo "$DEFAULTS_JSON" | jq -r '."leap-dev".target') >> $GITHUB_OUTPUT
-          echo leap-dev-prerelease=$(echo "$DEFAULTS_JSON" | jq -r '."leap-dev".prerelease') >> $GITHUB_OUTPUT
-          echo leap-target=$(echo "$DEFAULTS_JSON" | jq -r '."leap".target') >> $GITHUB_OUTPUT
-          echo leap-prerelease=$(echo "$DEFAULTS_JSON" | jq -r '."leap".prerelease') >> $GITHUB_OUTPUT
+          echo antelope-spring-dev-target=$(echo "$DEFAULTS_JSON" | jq -r '."antelope-spring-dev".target') >> $GITHUB_OUTPUT
+          echo antelope-spring-dev-prerelease=$(echo "$DEFAULTS_JSON" | jq -r '."antelope-spring-dev".prerelease') >> $GITHUB_OUTPUT
           echo cdt-target=$(echo "$DEFAULTS_JSON" | jq -r '."cdt".target') >> $GITHUB_OUTPUT
           echo cdt-prerelease=$(echo "$DEFAULTS_JSON" | jq -r '."cdt".prerelease') >> $GITHUB_OUTPUT
           echo eos-evm-contract-target=$(echo "$DEFAULTS_JSON" | jq -r '."eos-evm-contract".target') >> $GITHUB_OUTPUT
           echo eos-evm-contract-prerelease=$(echo "$DEFAULTS_JSON" | jq -r '."eos-evm-contract".prerelease') >> $GITHUB_OUTPUT
           echo eos-evm-miner-target=$(echo "$DEFAULTS_JSON" | jq -r '."eos-evm-miner".target') >> $GITHUB_OUTPUT
 
-          if [[ "${{inputs.override-leap-dev}}" != "" ]]; then
-            echo leap-dev-target=${{inputs.override-leap-dev}} >> $GITHUB_OUTPUT
-          fi
-          if [[ "${{inputs.override-leap-dev-prerelease}}" == +(true|false) ]]; then
-            echo leap-dev-prerelease=${{inputs.override-leap-dev-prerelease}} >> $GITHUB_OUTPUT
-          fi
-          if [[ "${{inputs.override-leap}}" != "" ]]; then
-            echo leap-target=${{inputs.override-leap}} >> $GITHUB_OUTPUT
-          fi
-          if [[ "${{inputs.override-leap-prerelease}}" == +(true|false) ]]; then
-            echo leap-prerelease=${{inputs.override-leap-prerelease}} >> $GITHUB_OUTPUT
-          fi
           if [[ "${{inputs.override-cdt}}" != "" ]]; then
             echo cdt-target=${{inputs.override-cdt}} >> $GITHUB_OUTPUT
           fi
@@ -230,48 +194,55 @@ jobs:
           apt update
           apt upgrade -y
 
-      - name: Download CDT
+      - name: Download cdt
         uses: AntelopeIO/asset-artifact-download-action@v3
         with:
           owner: AntelopeIO
           repo: cdt
+          file: 'cdt_.*amd64.deb'
           target: '${{needs.versions.outputs.cdt-target}}'
           prereleases: ${{fromJSON(needs.versions.outputs.cdt-prerelease)}}
-          file: 'cdt_.*amd64.deb'
-          token: ${{ secrets.GITHUB_TOKEN }}
+          artifact-name: cdt_ubuntu_package_amd64
 
-      - name: Install CDT
-        run: apt-get install -y ./cdt*.deb
-
-      - name: Download leap-dev binary
+      - name: Download antelope-spring-dev
         uses: AntelopeIO/asset-artifact-download-action@v3
         with:
           owner: AntelopeIO
-          repo: leap
-          target: '${{needs.versions.outputs.leap-dev-target}}'
-          prereleases: ${{fromJSON(needs.versions.outputs.leap-dev-prerelease)}}
-          file: 'leap-dev.*ubuntu22\.04_amd64.deb'
-          container-package: experimental-binaries
-          artifact-name: leap-dev-ubuntu22-amd64
-          token: ${{ secrets.GITHUB_TOKEN }}
+          repo: spring
+          file: 'antelope-spring-dev.*ubuntu22\.04_amd64.deb'
+          target: '${{needs.versions.outputs.antelope-spring-dev-target}}'
+          prereleases: ${{fromJSON(needs.versions.outputs.antelope-spring-dev-prerelease)}}
+          artifact-name: antelope-spring-dev-ubuntu22-amd64
+          container-package: antelope-spring-experimental-binaries
 
-      - name: Download leap binary
+      - name: Download antelope-spring binary
         uses: AntelopeIO/asset-artifact-download-action@v3
         with:
           owner: AntelopeIO
-          repo: leap
-          target: '${{needs.versions.outputs.leap-target}}'
-          prereleases: ${{fromJSON(needs.versions.outputs.leap-prerelease)}}
-          file: 'leap_.*_amd64.deb'
-          artifact-name: leap-deb-amd64
-          token: ${{ secrets.GITHUB_TOKEN }}
+          repo: spring
+          file: 'antelope-spring_.*_amd64.deb'
+          target: '${{needs.versions.outputs.antelope-spring-dev-target}}'
+          prereleases: ${{fromJSON(needs.versions.outputs.antelope-spring-dev-prerelease)}}
+          artifact-name: antelope-spring-deb-amd64
 
-      - name: Install Leap
+      - name: Install packages
         run: |
-          apt-get install -y ./leap*.deb
+          apt-get update && apt-get upgrade -y
+          apt install -y ./*.deb
+          apt-get install -y cmake
+          rm ./*.deb
+          echo "=== after install packages ==="
+          ls -ltr /usr
+          ls -ltr /usr/bin/
+          ls -ltr /usr/lib/
+          ls -ltr /usr/share/
+          echo "=== files in /usr/share/spring_testing ==="
+          ls -ltr /usr/share/spring_testing/
+          echo "=== files in /usr/share/spring_testing/bin ==="
+          ls -ltr /usr/share/spring_testing/bin/
 
-      - name: Link Leap TestHarness Module (fix for v4 of leap)
-        run: ln -s /usr/share/leap_testing/tests/TestHarness /usr/lib/python3/dist-packages/TestHarness
+      - name: Link Spring TestHarness Module
+        run: ln -s /usr/share/spring_testing/tests/TestHarness /usr/lib/python3/dist-packages/TestHarness
 
       - name: Download EOS EVM Contract
         uses: AntelopeIO/asset-artifact-download-action@v3
@@ -437,11 +408,11 @@ jobs:
       - name: Prepare Logs
         if: failure()
         run: |
-          tar -czf leap-int-test-logs.tar.gz test_run_root/* ws_test_run_root/*
+          tar -czf sprint-int-test-logs.tar.gz test_run_root/* ws_test_run_root/*
 
       - name: Upload logs from failed tests
         uses: actions/upload-artifact@v3
         if: failure()
         with:
-          name: leap-int-test-logs.tar.gz
-          path: leap-int-test-logs.tar.gz
+          name: spring-int-test-logs.tar.gz
+          path: spring-int-test-logs.tar.gz
