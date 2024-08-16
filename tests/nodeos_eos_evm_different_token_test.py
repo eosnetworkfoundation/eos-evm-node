@@ -95,6 +95,12 @@ evmNodePOpen = None
 evmRPCPOpen = None
 eosEvmMinerPOpen = None
 
+def get_raw_transaction(signed_trx):
+    if hasattr(signed_trx, 'raw_transaction'):
+        return signed_trx.raw_transaction
+    else:
+        return signed_trx.rawTransaction
+
 def interact_with_storage_contract(dest, nonce):
     for i in range(1, 5): # execute a few
         Utils.Print("Execute ETH contract")
@@ -111,7 +117,7 @@ def interact_with_storage_contract(dest, nonce):
             chainId=evmChainId
         ), evmSendKey)
 
-        actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+        actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
         retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name))
         assert retValue[0], "pushtx to ETH contract failed."
         Utils.Print("\tBlock#", retValue[1]["processed"]["block_num"])
@@ -383,7 +389,7 @@ try:
     cmd="set account permission " + defertest2Acc.name + " active --add-code -p " + defertest2Acc.name + "@active"
     prodNode.processCleosCmd(cmd, cmd, silentErrors=False, returnType=ReturnType.raw)
 
-    trans = prodNode.pushMessage(evmAcc.name, "init", "{\"chainid\":15555, \"token_contract\":\"gasgasgasgas\", \"fee_params\": {\"gas_price\": \"10000000000\", \"miner_cut\": 10000, \"ingress_bridge_fee\": \"0.00000000 GAS\"}}", '-p eosio.evm')
+    trans = prodNode.pushMessage(evmAcc.name, "init", "{\"chainid\":18888, \"token_contract\":\"gasgasgasgas\", \"fee_params\": {\"gas_price\": \"10000000000\", \"miner_cut\": 10000, \"ingress_bridge_fee\": \"0.00000000 GAS\"}}", '-p eosio.evm')
 
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
     transId=prodNode.getTransId(trans[1])
@@ -398,7 +404,7 @@ try:
         },
         "coinbase": "0x0000000000000000000000000000000000000000",
         "config": {
-            "chainId": 15555,
+            "chainId": 18888,
             "homesteadBlock": 0,
             "eip150Block": 0,
             "eip155Block": 0,
@@ -455,7 +461,7 @@ try:
         if not (i+1) % 20: time.sleep(1)
 
     Utils.Print("Send balance")
-    evmChainId = 15555
+    evmChainId = 18888
     fromAdd = "f39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     toAdd = '0x9edf022004846bc987799d552d1b8485b317b7ed'
     amount = 100
@@ -473,7 +479,7 @@ try:
         chainId=evmChainId
     ), evmSendKey)
 
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name))
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
 
@@ -499,7 +505,7 @@ try:
         chainId=evmChainId
     ), evmSendKey)
 
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     Utils.Print("Send balance again, with correct nonce")
     retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     assert retValue[0], f"push trx should have succeeded: {retValue}"
@@ -518,14 +524,14 @@ try:
         chainId=evmChainId
     ), evmSendKey)
 
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     Utils.Print("Send balance again, with invalid chainid")
     retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     assert not retValue[0], f"push trx should have failed: {retValue}"
 
     # correct values for continuing
     nonce -= 1
-    evmChainId = 15555
+    evmChainId = 18888
 
     Utils.Print("Simple Solidity contract")
     # // SPDX-License-Identifier: GPL-3.0
@@ -540,7 +546,7 @@ try:
     #     }
     # }
     nonce += 1
-    evmChainId = 15555
+    evmChainId = 18888
     gasP = getGasPrice()
     signed_trx = w3.eth.account.sign_transaction(dict(
         nonce=nonce,
@@ -550,7 +556,7 @@ try:
         chainId=evmChainId
     ), evmSendKey)
 
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name))
     assert retValue[0], f"push trx should have succeeded: {retValue}"
     nonce = interact_with_storage_contract(makeContractAddress(fromAdd, nonce), nonce)
@@ -675,7 +681,7 @@ try:
         data=b'',
         chainId=evmChainId
     ), evmSendKey)
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
     row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
@@ -708,7 +714,7 @@ try:
         data=b'',
         chainId=evmChainId
     ), evmSendKey)
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
     row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
@@ -757,12 +763,12 @@ try:
         gas=1000000,
         gasPrice=getGasPrice(),
         data=Web3.to_bytes(hexstr='608060405234801561001057600080fd5b50610284806100206000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c80630a79309b1461003b578063d09de08a1461006b575b600080fd5b61005560048036038101906100509190610176565b610075565b60405161006291906101bc565b60405180910390f35b6100736100bd565b005b60008060008373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020549050919050565b6000803373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020600081548092919061010c90610206565b9190505550565b600080fd5b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b600061014382610118565b9050919050565b61015381610138565b811461015e57600080fd5b50565b6000813590506101708161014a565b92915050565b60006020828403121561018c5761018b610113565b5b600061019a84828501610161565b91505092915050565b6000819050919050565b6101b6816101a3565b82525050565b60006020820190506101d160008301846101ad565b92915050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b6000610211826101a3565b91507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8203610243576102426101d7565b5b60018201905091905056fea264697066735822122026d27f46966ee75c7a8b2a43923c8796438013de730eb9eec6c24ff581913d6864736f6c63430008120033'),
-        chainId=15555
+        chainId=18888
     ), accSpecialKey)
 
     # Deploy "Increment" contract
     increment_contract = makeContractAddress(accSpecialAdd, special_nonce)
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     prodNode.waitForTransBlockIfNeeded(trans[1], True);
 
@@ -774,10 +780,10 @@ try:
         gasPrice=getGasPrice(),
         to=Web3.to_checksum_address(increment_contract),
         data=Web3.to_bytes(hexstr='D09DE08A'),  # sha3(increment())=0xD09DE08A
-        chainId=15555
+        chainId=18888
     ), accSpecialKey)
 
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=False)
     prodNode.waitForTransBlockIfNeeded(trans[1], True);
 
@@ -835,7 +841,7 @@ try:
         data=b'',
         chainId=evmChainId
     ), evmSendKey)
-    actData = {"recipient":defertestAcc.name, "account":evmAcc.name, "miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:], "rlptx2":Web3.to_hex(signed_trx2.rawTransaction)[2:]}
+    actData = {"recipient":defertestAcc.name, "account":evmAcc.name, "miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:], "rlptx2":Web3.to_hex(get_raw_transaction(signed_trx2))[2:]}
     trans = prodNode.pushMessage(defertest2Acc.name, "notifytest", json.dumps(actData), '-p {0}'.format(defertest2Acc.name), silentErrors=False)
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
     row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
@@ -971,7 +977,7 @@ try:
         data=b'',
         chainId=evmChainId
     ), evmSendKey)
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(signed_trx.rawTransaction)[2:]}
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=False)
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
     row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
