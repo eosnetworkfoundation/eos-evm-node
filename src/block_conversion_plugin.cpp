@@ -6,6 +6,7 @@
 #include <eosevm/block_mapping.hpp>
 #include <eosevm/consensus_parameters.hpp>
 #include <eosevm/version.hpp>
+#include <eosevm/gas_prices.hpp>
 
 #include <fstream>
 
@@ -128,11 +129,19 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
 
          new_block.header.parent_hash = last_evm_block.header.hash();
          new_block.header.transactions_root = silkworm::kEmptyRoot;
+
          // Note: can be null
          auto cpi = last_evm_block.get_consensus_parameter_index();
          if(cpi.has_value()) {
             new_block.set_consensus_parameter_index(cpi);
          }
+
+         // Note: can be null
+         auto gpi = last_evm_block.get_gas_prices_index();
+         if(gpi.has_value()) {
+            new_block.set_gas_prices_index(gpi);
+         }
+
          return new_block;
       }
 
@@ -305,6 +314,35 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                      auto dtx = deserialize_tx(act);
                      auto& rlpx_ref = std::visit([](auto&& arg) -> auto& { return arg.rlpx; }, dtx);
 
+                     if(block_version >= 3) {
+                        SILKWORM_ASSERT(std::holds_alternative<evmtx_v3>(dtx));
+                        const auto& dtx_v3 = std::get<evmtx_v3>(dtx);
+                        auto tx_gas_prices = eosevm::gas_prices{
+                           .overhead_price = dtx_v3.overhead_price,
+                           .storage_price  = dtx_v3.storage_price
+                        };
+                        auto tx_gas_prices_index = tx_gas_prices.hash();
+                        auto curr_block_prices_index = curr.get_gas_prices_index();
+
+                        auto set_new_gas_prices = [&](){
+                           curr.set_gas_prices_index(tx_gas_prices_index);
+                           silkworm::db::update_gas_prices(appbase::app().get_plugin<blockchain_plugin>().get_tx(), tx_gas_prices_index, tx_gas_prices);
+                        };
+
+                        if(!curr_block_prices_index) {
+                           set_new_gas_prices();
+                        } else if(*curr_block_prices_index != tx_gas_prices_index) {
+                           if(curr.transactions.empty()) {
+                              set_new_gas_prices();
+                           } else {
+                              SILK_CRIT << "curr_block_prices_index != tx_gas_prices_index";
+                              throw std::runtime_error("curr_block_prices_index != tx_gas_prices_index");
+                           }
+                        }
+
+                        curr.header.base_fee_per_gas = eosevm::calculate_base_fee_per_gas(tx_gas_prices.overhead_price, tx_gas_prices.storage_price);
+                     }
+
                      silkworm::ByteView bv = {(const uint8_t*)rlpx_ref.data(), rlpx_ref.size()};
                      silkworm::Transaction evm_tx;
                      if (!silkworm::rlp::decode_transaction(bv, evm_tx, silkworm::rlp::Eip2718Wrapping::kBoth, silkworm::rlp::Leftover::kProhibit)) {
@@ -326,8 +364,8 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                         }
                      }
 
-                     if(block_version >= 1) {
-                        auto tx_base_fee = std::visit([](auto&& arg) -> auto { return arg.base_fee_per_gas; }, dtx);
+                     if(block_version >= 1 && block_version < 3) {
+                        auto tx_base_fee = std::get<evmtx_v1>(dtx).base_fee_per_gas;
                         if(!curr.header.base_fee_per_gas.has_value()) {
                            curr.header.base_fee_per_gas = tx_base_fee;
                         } else if (curr.header.base_fee_per_gas.value() != tx_base_fee) {
@@ -380,7 +418,7 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
          if( na.name == pushtx_n ) {
             pushtx tx;
             eosio::convert_from_bin(tx, na.data);
-            return evmtx_type{evmtx_v0{0, std::move(tx.rlpx), 0}};
+            return evmtx_type{evmtx_v1{0, std::move(tx.rlpx), 0}};
          }
          evmtx_type evmtx;
          eosio::convert_from_bin(evmtx, na.data);
