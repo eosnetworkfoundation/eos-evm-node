@@ -1052,6 +1052,53 @@ try:
     b = get_block("latest")
     assert(b["baseFeePerGas"] == "0xd18c2e2800")
 
+    ####### Test eth_call for simple contract
+
+    # // SPDX-License-Identifier: GPL-3.0
+    # pragma solidity >=0.7.6;
+
+    # contract TimeShow {
+    #     function getTimestamp() public view  returns (uint) {
+    #         return block.timestamp;
+    #     } 
+    # }
+    Print("Test eth_call")
+    special_nonce += 1
+    signed_trx = w3.eth.account.sign_transaction(dict(
+        nonce=special_nonce,
+        gas=2000000,
+        maxFeePerGas = 900000000000,
+        maxPriorityFeePerGas = 900000000000,
+        data=Web3.to_bytes(hexstr='6080604052348015600e575f80fd5b5060ae80601a5f395ff3fe6080604052348015600e575f80fd5b50600436106026575f3560e01c8063188ec35614602a575b5f80fd5b60306044565b604051603b91906061565b60405180910390f35b5f42905090565b5f819050919050565b605b81604b565b82525050565b5f60208201905060725f8301846054565b9291505056fea2646970667358221220bf024720b7909e9eff500e9bccd1672f220872e152d393c961d4998e57a4944a64736f6c634300081a0033'),
+        chainId=15555
+    ), accSpecialKey)
+
+    # Deploy "Blocktime" contract
+    blocktime_contract = makeContractAddress(accSpecialAdd, special_nonce)
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
+    trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
+    prodNode.waitForTransBlockIfNeeded(trans[1], True);
+    time.sleep(2)
+
+    b = get_block("latest")
+
+    call_msg = {
+        "method": "eth_call",
+        "params": [{
+            "from": accSpecialAdd,
+            "to": blocktime_contract,
+            "data": "0x188ec356", #getTimestamp()
+            "value": "0x0"
+        }, b['number']],
+        "jsonrpc": "2.0",
+        "id": 1,
+    }
+
+    result = processUrllibRequest("http://localhost:8881", payload=call_msg)
+    Utils.Print("Comparing: %s vs %s" % (b['timestamp'], result['payload']['result']))
+    assert(int(b["timestamp"],16) == int(result['payload']['result'],16))
+    ####### END Test eth_call for simple contract
+
     Utils.Print("Validate all balances (check evmtx event processing)")
     # Validate all balances (check evmtx event)
     validate_all_balances()
