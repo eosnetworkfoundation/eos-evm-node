@@ -1122,7 +1122,6 @@ try:
 
     Utils.Print("Switching to Savanna")
     cluster.activateInstantFinality()
-    time.sleep(2.0)
 
     info = cluster.biosNode.getInfo(exitOnError=True)
     assert (info["head_block_num"] - info["last_irreversible_block_num"]) < 9, "Instant finality enabled LIB diff should be small"
