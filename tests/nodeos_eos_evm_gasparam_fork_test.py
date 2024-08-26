@@ -758,7 +758,7 @@ try:
     # Verify header.nonce == 1 (evmversion=1)
     evm_block = w3.eth.get_block('latest')
     Utils.Print("before fork, the latest evm block is:" + str(evm_block))
-    assert(evm_block["nonce"].hex() == "0x0000000000000001")
+    assert(evm_block["nonce"].hex() == "0000000000000001")
     assert("consensusParameter" in evm_block)
     assert(evm_block["consensusParameter"]["gasFeeParameters"]["gasCodedeposit"] == 477)
     assert(evm_block["consensusParameter"]["gasFeeParameters"]["gasNewaccount"] == 165519)
@@ -942,7 +942,7 @@ try:
     # verify eos-evm-node get the new gas parameter from the minor fork
     evm_block = w3.eth.get_block('latest')
     Utils.Print("in minor fork, the latest evm block is:" + str(evm_block))
-    assert(evm_block["nonce"].hex() == "0x0000000000000001")
+    assert(evm_block["nonce"].hex() == "0000000000000001")
     assert("consensusParameter" in evm_block)
 
     assert(evm_block["consensusParameter"]["gasFeeParameters"]["gasCodedeposit"] == 573)
@@ -1046,7 +1046,7 @@ try:
 
     evm_block = w3.eth.get_block('latest')
     Utils.Print("after fork resolved, the latest evm block is:" + str(evm_block))
-    assert(evm_block["nonce"].hex() == "0x0000000000000001")
+    assert(evm_block["nonce"].hex() == "0000000000000001")
     assert("consensusParameter" in evm_block)
 
     assert(evm_block["consensusParameter"]["gasFeeParameters"]["gasCodedeposit"] == 477)
