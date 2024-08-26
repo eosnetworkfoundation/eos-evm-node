@@ -275,7 +275,7 @@ try:
     extraNodeosArgs="--contracts-console --resource-monitor-not-shutdown-on-threshold-exceeded"
 
     Print("Stand up cluster")
-    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, extraNodeosArgs=extraNodeosArgs, specificExtraNodeosArgs=specificExtraNodeosArgs,delay=5) is False:
+    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, extraNodeosArgs=extraNodeosArgs, specificExtraNodeosArgs=specificExtraNodeosArgs,loadSystemContract=False,delay=5) is False:
         errorExit("Failed to stand up eos cluster.")
 
     Print ("Wait for Cluster stabilization")
@@ -313,16 +313,16 @@ try:
     # create accounts via eosio as otherwise a bid is needed
     for account in accounts:
         Print("Create new account %s via %s" % (account.name, cluster.eosioAccount.name))
-        trans=nonProdNode.createInitializeAccount(account, cluster.eosioAccount, stakedDeposit=0, waitForTransBlock=True, stakeNet=10000, stakeCPU=10000, buyRAM=10000000, exitOnError=True)
+        
+        trans=nonProdNode.createAccount(account, cluster.eosioAccount,0,waitForTransBlock=True)
+
         #   max supply 1000000000.0000 (1 Billion)
-        transferAmount="100000000.0000 {0}".format(CORE_SYMBOL) # 100 Million
+        transferAmount="60000000.0000 {0}".format(CORE_SYMBOL)
+        if account.name == evmAcc.name:
+            transferAmount="58999999.0000 {0}".format(CORE_SYMBOL)
+
         Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.eosioAccount.name, account.name))
         nonProdNode.transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer", waitForTransBlock=True)
-        if account.name == evmAcc.name:
-            # stake more for evmAcc so it has a smaller balance, during setup of addys below the difference will be transferred in
-            trans=nonProdNode.delegatebw(account, 20000000.0000 + numAddys*1000000.0000, 20000001.0000, waitForTransBlock=True, exitOnError=True)
-        else:
-            trans=nonProdNode.delegatebw(account, 20000000.0000, 20000000.0000, waitForTransBlock=True, exitOnError=True)
 
     contractDir=eosEvmContractRoot + "/evm_runtime"
     wasmFile="evm_runtime.wasm"
@@ -1120,6 +1120,60 @@ try:
             Utils.Print("  Found ERROR in EOS EVM RPC log: ", line)
             foundErr = True
 
+    Utils.Print("Switching to Savanna")
+    cluster.activateInstantFinality()
+    time.sleep(2.0)
+
+    info = cluster.biosNode.getInfo(exitOnError=True)
+    assert (info["head_block_num"] - info["last_irreversible_block_num"]) < 9, "Instant finality enabled LIB diff should be small"
+
+
+    # --------------------------------------------
+    # EVM -> EOS
+    #   0x9E126C57330FA71556628e0aabd6B6B6783d99fA private key: 0xba8c9ff38e4179748925335a9891b969214b37dc3723a1754b8b849d3eea9ac0
+    toAdd = makeReservedEvmAddress(convert_name_to_value(aliceAcc.name))
+    evmSendKey = "ba8c9ff38e4179748925335a9891b969214b37dc3723a1754b8b849d3eea9ac0"
+    amount=1.0000
+    transferAmount="1.0000 {0}".format(CORE_SYMBOL)
+    bal1 = w3.eth.get_balance(Web3.to_checksum_address("0x9E126C57330FA71556628e0aabd6B6B6783d99fA"))
+    Print("Using new gas param, transfer funds %s from account %s to reserved account (EVM->EOS)" % (transferAmount, evmAcc.name))
+    nonce = nonce + 1
+    signed_trx = w3.eth.account.sign_transaction(dict(
+        nonce=nonce,
+        gas=100000,       #100k Gas
+        maxFeePerGas = 900000000000,
+        maxPriorityFeePerGas = 900000000000,
+        #gasPrice=900000000000,
+        to=Web3.to_checksum_address(toAdd),
+        value=int(amount*10000*szabo*100), # .0001 EOS is 100 szabos
+        data=b'',
+        chainId=evmChainId
+    ), evmSendKey)
+    Print("EVM transaction hash is: %s" % (Web3.to_hex(signed_trx.hash)))
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
+    trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=False)
+    prodNode.waitForTransBlockIfNeeded(trans[1], True)
+    row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
+    Utils.Print("\tverify balance from evm-rpc, account row4: ", row4)
+    bal2 = w3.eth.get_balance(Web3.to_checksum_address("0x9E126C57330FA71556628e0aabd6B6B6783d99fA"))
+
+    # balance different = 1.0 EOS (val) + 900(Gwei) (21000(base gas))
+    assert(bal1 == bal2 + 1000000000000000000 + 900000000000 * 21000)
+
+    Utils.Print("try to get transaction %s from evm-rpc" % (Web3.to_hex(signed_trx.hash)))
+    evm_tx = w3.eth.get_transaction(signed_trx.hash)
+    tx_dict = toDict(evm_tx)
+    Utils.Print("evm transaction is %s" % (json.dumps(tx_dict)))
+    assert(prefix_0x(str(tx_dict["hash"])) == str(Web3.to_hex(signed_trx.hash)))
+
+    Utils.Print("try to get transaction receipt %s from evm-rpc" % (Web3.to_hex(signed_trx.hash)))
+    evm_tx = w3.eth.get_transaction_receipt(signed_trx.hash)
+    tx_dict = toDict(evm_tx)
+    Utils.Print("evm transaction receipt is %s" % (json.dumps(tx_dict)))
+    assert(prefix_0x(str(tx_dict["transactionHash"])) == str(Web3.to_hex(signed_trx.hash)))
+
+    validate_all_balances() # validate balances between native & EVM
+
     testSuccessful= not foundErr
     if testSuccessful:
         Utils.Print("test success, ready to shut down cluster")
@@ -1127,7 +1181,7 @@ try:
         Utils.Print("test failed, ready to shut down cluster")
 
 finally:
-    Utils.Print("test success, shutting down cluster")
+    Utils.Print("shutting down cluster")
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
     if killEosInstances:
         Utils.Print("killing EOS instances")
