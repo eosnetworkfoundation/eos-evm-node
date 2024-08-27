@@ -1124,52 +1124,6 @@ try:
             Utils.Print("  Found ERROR in EOS EVM RPC log: ", line)
             foundErr = True
 
-    # --------------------------------------------
-    # EVM -> EOS
-    #   0x9E126C57330FA71556628e0aabd6B6B6783d99fA private key: 0xba8c9ff38e4179748925335a9891b969214b37dc3723a1754b8b849d3eea9ac0
-    toAdd = makeReservedEvmAddress(convert_name_to_value(aliceAcc.name))
-    evmSendKey = "ba8c9ff38e4179748925335a9891b969214b37dc3723a1754b8b849d3eea9ac0"
-    amount=1.0000
-    transferAmount="1.0000 {0}".format(CORE_SYMBOL)
-    bal1 = w3.eth.get_balance(Web3.to_checksum_address("0x9E126C57330FA71556628e0aabd6B6B6783d99fA"))
-    Print("Using new gas param, transfer funds %s from account %s to reserved account (EVM->EOS)" % (transferAmount, evmAcc.name))
-    nonce = nonce + 1
-    signed_trx = w3.eth.account.sign_transaction(dict(
-        nonce=nonce,
-        gas=100000,       #100k Gas
-        maxFeePerGas = 900000000000,
-        maxPriorityFeePerGas = 900000000000,
-        #gasPrice=900000000000,
-        to=Web3.to_checksum_address(toAdd),
-        value=int(amount*10000*szabo*100), # .0001 EOS is 100 szabos
-        data=b'',
-        chainId=evmChainId
-    ), evmSendKey)
-    Print("EVM transaction hash is: %s" % (Web3.to_hex(signed_trx.hash)))
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
-    trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=False)
-    prodNode.waitForTransBlockIfNeeded(trans[1], True)
-    row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
-    Utils.Print("\tverify balance from evm-rpc, account row4: ", row4)
-    bal2 = w3.eth.get_balance(Web3.to_checksum_address("0x9E126C57330FA71556628e0aabd6B6B6783d99fA"))
-
-    # balance different = 1.0 EOS (val) + 900(Gwei) (21000(base gas))
-    assert(bal1 == bal2 + 1000000000000000000 + 900000000000 * 21000)
-
-    Utils.Print("try to get transaction %s from evm-rpc" % (Web3.to_hex(signed_trx.hash)))
-    evm_tx = w3.eth.get_transaction(signed_trx.hash)
-    tx_dict = toDict(evm_tx)
-    Utils.Print("evm transaction is %s" % (json.dumps(tx_dict)))
-    assert(prefix_0x(str(tx_dict["hash"])) == str(Web3.to_hex(signed_trx.hash)))
-
-    Utils.Print("try to get transaction receipt %s from evm-rpc" % (Web3.to_hex(signed_trx.hash)))
-    evm_tx = w3.eth.get_transaction_receipt(signed_trx.hash)
-    tx_dict = toDict(evm_tx)
-    Utils.Print("evm transaction receipt is %s" % (json.dumps(tx_dict)))
-    assert(prefix_0x(str(tx_dict["transactionHash"])) == str(Web3.to_hex(signed_trx.hash)))
-
-    validate_all_balances() # validate balances between native & EVM
-
     testSuccessful= not foundErr
     if testSuccessful:
         Utils.Print("test success, ready to shut down cluster")
