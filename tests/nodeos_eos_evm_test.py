@@ -275,7 +275,7 @@ try:
     extraNodeosArgs="--contracts-console --resource-monitor-not-shutdown-on-threshold-exceeded"
 
     Print("Stand up cluster")
-    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, extraNodeosArgs=extraNodeosArgs, specificExtraNodeosArgs=specificExtraNodeosArgs,loadSystemContract=False,delay=5) is False:
+    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, extraNodeosArgs=extraNodeosArgs, specificExtraNodeosArgs=specificExtraNodeosArgs,loadSystemContract=False,activateIF=True,delay=5) is False:
         errorExit("Failed to stand up eos cluster.")
 
     Print ("Wait for Cluster stabilization")
@@ -283,6 +283,10 @@ try:
     if not cluster.waitOnClusterBlockNumSync(3):
         errorExit("Cluster never stabilized")
     Print ("Cluster stabilized")
+
+    Utils.Print("make sure instant finality is switched")
+    info = cluster.biosNode.getInfo(exitOnError=True)
+    assert (info["head_block_num"] - info["last_irreversible_block_num"]) < 9, "Instant finality enabled LIB diff should be small"
 
     prodNode = cluster.getNode(0)
     nonProdNode = cluster.getNode(1)
@@ -1119,13 +1123,6 @@ try:
         if line.find("ERROR") != -1 or line.find("CRIT") != -1:
             Utils.Print("  Found ERROR in EOS EVM RPC log: ", line)
             foundErr = True
-
-    Utils.Print("Switching to Savanna")
-    cluster.activateInstantFinality()
-
-    info = cluster.biosNode.getInfo(exitOnError=True)
-    assert (info["head_block_num"] - info["last_irreversible_block_num"]) < 9, "Instant finality enabled LIB diff should be small"
-
 
     # --------------------------------------------
     # EVM -> EOS
