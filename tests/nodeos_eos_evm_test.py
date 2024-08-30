@@ -275,7 +275,7 @@ try:
     extraNodeosArgs="--contracts-console --resource-monitor-not-shutdown-on-threshold-exceeded"
 
     Print("Stand up cluster")
-    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, extraNodeosArgs=extraNodeosArgs, specificExtraNodeosArgs=specificExtraNodeosArgs,delay=5) is False:
+    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, extraNodeosArgs=extraNodeosArgs, specificExtraNodeosArgs=specificExtraNodeosArgs,loadSystemContract=False,activateIF=True,delay=5) is False:
         errorExit("Failed to stand up eos cluster.")
 
     Print ("Wait for Cluster stabilization")
@@ -283,6 +283,10 @@ try:
     if not cluster.waitOnClusterBlockNumSync(3):
         errorExit("Cluster never stabilized")
     Print ("Cluster stabilized")
+
+    Utils.Print("make sure instant finality is switched")
+    info = cluster.biosNode.getInfo(exitOnError=True)
+    assert (info["head_block_num"] - info["last_irreversible_block_num"]) < 9, "Instant finality enabled LIB diff should be small"
 
     prodNode = cluster.getNode(0)
     nonProdNode = cluster.getNode(1)
@@ -313,16 +317,16 @@ try:
     # create accounts via eosio as otherwise a bid is needed
     for account in accounts:
         Print("Create new account %s via %s" % (account.name, cluster.eosioAccount.name))
-        trans=nonProdNode.createInitializeAccount(account, cluster.eosioAccount, stakedDeposit=0, waitForTransBlock=True, stakeNet=10000, stakeCPU=10000, buyRAM=10000000, exitOnError=True)
+        
+        trans=nonProdNode.createAccount(account, cluster.eosioAccount,0,waitForTransBlock=True)
+
         #   max supply 1000000000.0000 (1 Billion)
-        transferAmount="100000000.0000 {0}".format(CORE_SYMBOL) # 100 Million
+        transferAmount="60000000.0000 {0}".format(CORE_SYMBOL)
+        if account.name == evmAcc.name:
+            transferAmount="58999999.0000 {0}".format(CORE_SYMBOL)
+
         Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.eosioAccount.name, account.name))
         nonProdNode.transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer", waitForTransBlock=True)
-        if account.name == evmAcc.name:
-            # stake more for evmAcc so it has a smaller balance, during setup of addys below the difference will be transferred in
-            trans=nonProdNode.delegatebw(account, 20000000.0000 + numAddys*1000000.0000, 20000001.0000, waitForTransBlock=True, exitOnError=True)
-        else:
-            trans=nonProdNode.delegatebw(account, 20000000.0000, 20000000.0000, waitForTransBlock=True, exitOnError=True)
 
     contractDir=eosEvmContractRoot + "/evm_runtime"
     wasmFile="evm_runtime.wasm"
@@ -1127,7 +1131,7 @@ try:
         Utils.Print("test failed, ready to shut down cluster")
 
 finally:
-    Utils.Print("test success, shutting down cluster")
+    Utils.Print("shutting down cluster")
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
     if killEosInstances:
         Utils.Print("killing EOS instances")
