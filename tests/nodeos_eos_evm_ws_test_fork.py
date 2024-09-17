@@ -1084,22 +1084,30 @@ try:
 
     blockProducers0=[]
     blockProducers1=[]
+
+    Utils.Print("closing websocket")
     ws.close()
 
     testSuccessful= not foundErr
 except Exception as ex:
     Utils.Print("Exception:" + str(ex))
 finally:
+    Utils.Print("shutting down cluster")
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
     if killEosInstances:
         if evmNodePOpen is not None:
+            Utils.Print("killing evm-node pipe")
             evmNodePOpen.kill()
         if evmRPCPOpen is not None:
+            Utils.Print("killing evm-rpc-node pipe")
             evmRPCPOpen.kill()
         if eosEvmMinerPOpen is not None:
+            Utils.Print("killing miner pipe")
             eosEvmMinerPOpen.kill()
         if wsproxy is not None:
+            Utils.Print("killing wsproxy")
             wsproxy.kill()
 
+Utils.Print("exit eos evm web-socket fork test")
 exitCode = 0 if testSuccessful else 1
 exit(exitCode)
