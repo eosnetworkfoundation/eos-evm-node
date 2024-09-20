@@ -1020,15 +1020,16 @@ try:
 
     testSuccessful= not foundErr
 finally:
-    TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
-    if killEosInstances:
-        if evmNodePOpen is not None:
-            evmNodePOpen.kill()
-        if evmRPCPOpen is not None:
-            evmRPCPOpen.kill()
-        if eosEvmMinerPOpen is not None:
-            eosEvmMinerPOpen.kill()
-        
+    if evmNodePOpen is not None:
+        Utils.Print("killing eos-evm-node")
+        evmNodePOpen.kill()
+    if evmRPCPOpen is not None:
+        Utils.Print("killing eos-evm-rpc")
+        evmRPCPOpen.kill()
+    if eosEvmMinerPOpen is not None:
+        Utils.Print("killing evm-miner")
+        eosEvmMinerPOpen.kill()
+    TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)        
 
 exitCode = 0 if testSuccessful else 1
 exit(exitCode)

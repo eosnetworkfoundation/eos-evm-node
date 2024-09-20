@@ -784,16 +784,19 @@ try:
 except Exception as ex:
     Utils.Print("Exception:" + str(ex))
 finally:
+    if evmNodePOpen is not None:
+        Utils.Print("killing eos-evm-node")
+        evmNodePOpen.kill()
+    if evmRPCPOpen is not None:
+        Utils.Print("killing eos-evm-rpc")
+        evmRPCPOpen.kill()
+    if eosEvmMinerPOpen is not None:
+        Utils.Print("killing evm-miner")
+        eosEvmMinerPOpen.kill()
+    if wsproxy is not None:
+        Utils.Print("killing web-socket proxy")
+        wsproxy.kill()
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
-    if killEosInstances:
-        if evmNodePOpen is not None:
-            evmNodePOpen.kill()
-        if evmRPCPOpen is not None:
-            evmRPCPOpen.kill()
-        if eosEvmMinerPOpen is not None:
-            eosEvmMinerPOpen.kill()
-        if wsproxy is not None:
-            wsproxy.kill()
 
 exitCode = 0 if testSuccessful else 1
 exit(exitCode)

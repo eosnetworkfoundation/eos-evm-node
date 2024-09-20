@@ -1131,17 +1131,17 @@ try:
         Utils.Print("test failed, ready to shut down cluster")
 
 finally:
+    if evmNodePOpen is not None:
+        Utils.Print("killing eos-evm-node")
+        evmNodePOpen.kill()
+    if evmRPCPOpen is not None:
+        Utils.Print("killing eos-evm-rpc")
+        evmRPCPOpen.kill()
+    if eosEvmMinerPOpen is not None:
+        Utils.Print("killing evm-miner")
+        eosEvmMinerPOpen.kill()
     Utils.Print("shutting down cluster")
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
-    if killEosInstances:
-        Utils.Print("killing EOS instances")
-        if evmNodePOpen is not None:
-            evmNodePOpen.kill()
-        if evmRPCPOpen is not None:
-            evmRPCPOpen.kill()
-        if eosEvmMinerPOpen is not None:
-            eosEvmMinerPOpen.kill()
-        
 
 exitCode = 0 if testSuccessful else 1
 exit(exitCode)
