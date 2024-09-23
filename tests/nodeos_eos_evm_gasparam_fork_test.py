@@ -1107,7 +1107,12 @@ finally:
     if wsproxy is not None:
         Utils.Print("killing web-socket proxy")
         wsproxy.kill()
-    TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
+    Utils.Print("killing nodeos")
+    for node in cluster.nodes:
+        node.kill(signal.SIGKILL)
+    if len(cluster.nodes) and cluster.biosNode != cluster.nodes[0]:
+        cluster.biosNode.kill(signal.SIGKILL)
+    #TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
 
 exitCode = 0 if testSuccessful else 1
 exit(exitCode)

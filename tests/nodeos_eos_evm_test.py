@@ -1140,8 +1140,11 @@ finally:
     if eosEvmMinerPOpen is not None:
         Utils.Print("killing evm-miner")
         eosEvmMinerPOpen.kill()
-    Utils.Print("shutting down cluster")
-    TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
-
+    Utils.Print("killing nodeos")
+    for node in cluster.nodes:
+        node.kill(signal.SIGKILL)
+    if len(cluster.nodes) and cluster.biosNode != cluster.nodes[0]:
+        cluster.biosNode.kill(signal.SIGKILL)
+        
 exitCode = 0 if testSuccessful else 1
 exit(exitCode)
