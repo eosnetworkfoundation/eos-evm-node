@@ -275,7 +275,7 @@ try:
     extraNodeosArgs="--contracts-console --resource-monitor-not-shutdown-on-threshold-exceeded"
 
     Print("Stand up cluster")
-    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, extraNodeosArgs=extraNodeosArgs, specificExtraNodeosArgs=specificExtraNodeosArgs,delay=5) is False:
+    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, extraNodeosArgs=extraNodeosArgs, specificExtraNodeosArgs=specificExtraNodeosArgs,loadSystemContract=False,activateIF=True,delay=5) is False:
         errorExit("Failed to stand up eos cluster.")
 
     Print ("Wait for Cluster stabilization")
@@ -283,6 +283,10 @@ try:
     if not cluster.waitOnClusterBlockNumSync(3):
         errorExit("Cluster never stabilized")
     Print ("Cluster stabilized")
+
+    Utils.Print("make sure instant finality is switched")
+    info = cluster.biosNode.getInfo(exitOnError=True)
+    assert (info["head_block_num"] - info["last_irreversible_block_num"]) < 9, "Instant finality enabled LIB diff should be small"
 
     prodNode = cluster.getNode(0)
     nonProdNode = cluster.getNode(1)
@@ -313,16 +317,16 @@ try:
     # create accounts via eosio as otherwise a bid is needed
     for account in accounts:
         Print("Create new account %s via %s" % (account.name, cluster.eosioAccount.name))
-        trans=nonProdNode.createInitializeAccount(account, cluster.eosioAccount, stakedDeposit=0, waitForTransBlock=True, stakeNet=10000, stakeCPU=10000, buyRAM=10000000, exitOnError=True)
+        
+        trans=nonProdNode.createAccount(account, cluster.eosioAccount,0,waitForTransBlock=True)
+
         #   max supply 1000000000.0000 (1 Billion)
-        transferAmount="100000000.0000 {0}".format(CORE_SYMBOL) # 100 Million
+        transferAmount="60000000.0000 {0}".format(CORE_SYMBOL)
+        if account.name == evmAcc.name:
+            transferAmount="58999999.0000 {0}".format(CORE_SYMBOL)
+
         Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.eosioAccount.name, account.name))
         nonProdNode.transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer", waitForTransBlock=True)
-        if account.name == evmAcc.name:
-            # stake more for evmAcc so it has a smaller balance, during setup of addys below the difference will be transferred in
-            trans=nonProdNode.delegatebw(account, 20000000.0000 + numAddys*1000000.0000, 20000001.0000, waitForTransBlock=True, exitOnError=True)
-        else:
-            trans=nonProdNode.delegatebw(account, 20000000.0000, 20000000.0000, waitForTransBlock=True, exitOnError=True)
 
     contractDir=eosEvmContractRoot + "/evm_runtime"
     wasmFile="evm_runtime.wasm"
@@ -1052,10 +1056,58 @@ try:
     b = get_block("latest")
     assert(b["baseFeePerGas"] == "0xd18c2e2800")
 
+    ####### Test eth_call for simple contract
+
+    # // SPDX-License-Identifier: GPL-3.0
+    # pragma solidity >=0.7.6;
+
+    # contract TimeShow {
+    #     function getTimestamp() public view  returns (uint) {
+    #         return block.timestamp;
+    #     } 
+    # }
+    Print("Test eth_call")
+    special_nonce += 1
+    signed_trx = w3.eth.account.sign_transaction(dict(
+        nonce=special_nonce,
+        gas=2000000,
+        maxFeePerGas = 900000000000,
+        maxPriorityFeePerGas = 900000000000,
+        data=Web3.to_bytes(hexstr='6080604052348015600e575f80fd5b5060ae80601a5f395ff3fe6080604052348015600e575f80fd5b50600436106026575f3560e01c8063188ec35614602a575b5f80fd5b60306044565b604051603b91906061565b60405180910390f35b5f42905090565b5f819050919050565b605b81604b565b82525050565b5f60208201905060725f8301846054565b9291505056fea2646970667358221220bf024720b7909e9eff500e9bccd1672f220872e152d393c961d4998e57a4944a64736f6c634300081a0033'),
+        chainId=15555
+    ), accSpecialKey)
+
+    # Deploy "Blocktime" contract
+    blocktime_contract = makeContractAddress(accSpecialAdd, special_nonce)
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
+    trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
+    prodNode.waitForTransBlockIfNeeded(trans[1], True);
+    time.sleep(2)
+
+    b = get_block("latest")
+
+    call_msg = {
+        "method": "eth_call",
+        "params": [{
+            "from": accSpecialAdd,
+            "to": blocktime_contract,
+            "data": "0x188ec356", #getTimestamp()
+            "value": "0x0"
+        }, b['number']],
+        "jsonrpc": "2.0",
+        "id": 1,
+    }
+
+    result = processUrllibRequest("http://localhost:8881", payload=call_msg)
+    Utils.Print("Comparing: %s vs %s" % (b['timestamp'], result['payload']['result']))
+    assert(int(b["timestamp"],16) == int(result['payload']['result'],16))
+    ####### END Test eth_call for simple contract
+
     Utils.Print("Validate all balances (check evmtx event processing)")
     # Validate all balances (check evmtx event)
     validate_all_balances()
 
+    Utils.Print("checking %s for errors" % (nodeStdErrDir))
     foundErr = False
     stdErrFile = open(nodeStdErrDir, "r")
     lines = stdErrFile.readlines()
@@ -1064,6 +1116,7 @@ try:
             Utils.Print("  Found ERROR in EOS EVM NODE log: ", line)
             foundErr = True
 
+    Utils.Print("checking %s for errors" % (rpcStdErrDir))
     stdErrFile = open(rpcStdErrDir, "r")
     lines = stdErrFile.readlines()
     for line in lines:
@@ -1072,9 +1125,16 @@ try:
             foundErr = True
 
     testSuccessful= not foundErr
+    if testSuccessful:
+        Utils.Print("test success, ready to shut down cluster")
+    else:
+        Utils.Print("test failed, ready to shut down cluster")
+
 finally:
+    Utils.Print("shutting down cluster")
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
     if killEosInstances:
+        Utils.Print("killing EOS instances")
         if evmNodePOpen is not None:
             evmNodePOpen.kill()
         if evmRPCPOpen is not None:
