@@ -207,11 +207,37 @@ class ship_receiver_plugin_impl : std::enable_shared_from_this<ship_receiver_plu
                      throw std::runtime_error("action_trace does not have receipt");
                   }
                   uint64_t global_sequence = 0;
-                  std::visit([&](auto &receipt) { 
-                     global_sequence = receipt.global_sequence;
+                  std::visit([&](auto &receipt) {
+                     if (act.act.name == evmtx_n) {
+                        uint32_t parent_act_index = act.creator_action_ordinal;
+                        if (parent_act_index == 0) {
+                           throw std::runtime_error("creator_action_ordinal can't be zero in evmtx");
+                        }
+                        parent_act_index--; // offset by 1
+                        if (parent_act_index >= j) {
+                           SILK_ERROR << "current action index:" << j << ", parent_act_index:" << parent_act_index;
+                           throw std::runtime_error("parent action index must be less than current action index");
+                        }
+                        std::visit([&](auto& parent_act) {
+                           if (!parent_act.receipt.has_value()) {
+                              SILK_ERROR << "parent action does not have receipt";
+                              throw std::runtime_error("parent action does not have receipt");
+                           }
+                           std::visit([&](auto &parent_act_receipt) {
+                              global_sequence = parent_act_receipt.global_sequence;
+                           }, parent_act.receipt.value());
+                        }, actions[parent_act_index]);
+                        SILK_DEBUG << "add evmtx sequence " << global_sequence 
+                                   << ", parent action index " << parent_act_index;
+                     } else if (act.act.name == configchange_n) {
+                        global_sequence = 0;
+                        SILK_DEBUG << "add configchange sequence " << global_sequence;
+                     } else {
+                        global_sequence = receipt.global_sequence;
+                        SILK_DEBUG << "add pushtx sequence " << global_sequence;
+                     }
                   }, act.receipt.value());
                   ordered_action_traces[global_sequence] = std::move(actions[j]);
-                  SILK_DEBUG << "add action sequence " << global_sequence;
                }
             }, actions[j]);
          }
