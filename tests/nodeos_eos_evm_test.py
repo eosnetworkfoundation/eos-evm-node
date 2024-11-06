@@ -936,7 +936,7 @@ try:
     #     constructor() {
     #          number = 41;
     #     }
-    #     function assertdata(uint256 expect) public {
+    #     function assertdata(uint256 expect) payable public {
     #         require(number == expect, "assertdata failed");
     #         number = number + 1;
     #     }
