@@ -1219,9 +1219,6 @@ try:
     else:
         Utils.Print("test failed, ready to shut down cluster")
 
-    Utils.Print("sleeping 1800s");
-    time.sleep(1800)
-
 finally:
     Utils.Print("shutting down cluster")
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
