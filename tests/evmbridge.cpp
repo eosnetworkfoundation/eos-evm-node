@@ -45,7 +45,7 @@ public:
 
 void evmbridge::onbridgemsg(const bridge_message& message) {
     const bridge_message_v0 &msg = std::get<bridge_message_v0>(message);
-    const char method[4] = {'\x00','\x8f','\xcf','\x3e'};  // function assertdata(uint256)
+    const char method[4] = {'\x00','\x8f','\xcf','\x3e'};  // function assertdata(uint256) payable
 
     uint8_t value_buffer[32] = {};
 
@@ -60,9 +60,10 @@ void evmbridge::onbridgemsg(const bridge_message& message) {
 
     call_action call_act("eosio.evm"_n, {{get_self(), "active"_n}});
 
-    bytes value_zero;
-    value_zero.resize(32, 0);
+    bytes value;
+    value.resize(32, 0);
+    value[31] = 100;
 
-    call_act.send(get_self() /*from*/, msg.sender /*to*/, value_zero /*value*/, call_data /*data*/, 100000 /*gas_limit*/);
+    call_act.send(get_self() /*from*/, msg.sender /*to*/, value /*value*/, call_data /*data*/, 100000 /*gas_limit*/);
 }
 
