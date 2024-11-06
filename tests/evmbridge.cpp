@@ -48,7 +48,10 @@ void evmbridge::onbridgemsg(const bridge_message& message) {
     const char method[4] = {'\x00','\x8f','\xcf','\x3e'};  // function assertdata(uint256)
 
     uint8_t value_buffer[32] = {};
-    value_buffer[31] = 42; // big endian
+
+    if (msg.data.size() >= 32) {
+        std::copy(msg.data.end() - 32, msg.data.end(), value_buffer);
+    }
 
     bytes call_data;
     call_data.reserve(4 + 32);

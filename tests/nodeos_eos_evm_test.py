@@ -423,8 +423,6 @@ try:
 
     Utils.Print("Open balance for miner")
     trans=prodNode.pushMessage(evmAcc.name, "open", '[{0}]'.format(minerAcc.name), '-p {0}'.format(minerAcc.name))
-    #Utils.Print("Open balance for evmbridge")
-    #trans=prodNode.pushMessage(evmAcc.name, "open", '[{0}]'.format(evmbridgeAcc.name), '-p {0}'.format(evmbridgeAcc.name))
 
     #
     # Setup eos-evm-miner
@@ -846,68 +844,6 @@ try:
     assert(row4["balance"] == "0000000000000000000000000000000000000000000000013539c783bbf0c000")
 
 
-    ### evmtx event order test
-    Utils.Print("Test evmtx event order via evmbridge contract")
-    # // SPDX-License-Identifier: GPL-3.0
-    # pragma solidity >=0.7.0 <0.9.0;
-    # contract BridgeTest {
-    #     uint256 number;
-    #     constructor() {
-    #         number = 41;
-    #     }
-    #     function assertdata(uint256 expect) view public {
-    #         require(number == expect, "assertdata failed");
-    #     }
-    #     function sendbridgemsg() payable public {
-    #         number = number + 1;
-    #         bytes memory receiver_msg = abi.encodeWithSignature("test(uint256)", number);
-    #         address evmaddr = 0xbBBBbBbbbBBBBbbbbbbBBbBB5530EA015b900000;//eosio.evm
-    #         (bool success, ) = evmaddr.call{value: msg.value}(
-    #             abi.encodeWithSignature("bridgeMsgV0(string,bool,bytes)", "evmbridge", true, receiver_msg ));
-    #         if(!success) { revert(); }
-    #     }
-    # }
-    nonce += 1
-    evmChainId = 15555
-    gasP = getGasPrice()
-    signed_trx = w3.eth.account.sign_transaction(dict(
-        nonce=nonce,
-        gas=5000000,       
-        gasPrice=gasP,
-        data=Web3.to_bytes(hexstr='608060405234801561001057600080fd5b5060296000819055506105aa806100286000396000f3fe6080604052600436106100285760003560e01c80628fcf3e1461002d57806386bf4eff14610056575b600080fd5b34801561003957600080fd5b50610054600480360381019061004f91906102b0565b610060565b005b61005e6100a7565b005b80600054146100a4576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161009b9061033a565b60405180910390fd5b50565b60016000546100b69190610389565b600081905550600080546040516024016100d091906103cc565b6040516020818303038152906040527f29e99f07000000000000000000000000000000000000000000000000000000007bffffffffffffffffffffffffffffffffffffffffffffffffffffffff19166020820180517bffffffffffffffffffffffffffffffffffffffffffffffffffffffff83818316178352505050509050600073bbbbbbbbbbbbbbbbbbbbbbbb5530ea015b900000905060008173ffffffffffffffffffffffffffffffffffffffff16346001856040516024016101969291906104de565b6040516020818303038152906040527ff781185b000000000000000000000000000000000000000000000000000000007bffffffffffffffffffffffffffffffffffffffffffffffffffffffff19166020820180517bffffffffffffffffffffffffffffffffffffffffffffffffffffffff8381831617835250505050604051610220919061055d565b60006040518083038185875af1925050503d806000811461025d576040519150601f19603f3d011682016040523d82523d6000602084013e610262565b606091505b505090508061027057600080fd5b505050565b600080fd5b6000819050919050565b61028d8161027a565b811461029857600080fd5b50565b6000813590506102aa81610284565b92915050565b6000602082840312156102c6576102c5610275565b5b60006102d48482850161029b565b91505092915050565b600082825260208201905092915050565b7f61737365727464617461206661696c6564000000000000000000000000000000600082015250565b60006103246011836102dd565b915061032f826102ee565b602082019050919050565b6000602082019050818103600083015261035381610317565b9050919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b60006103948261027a565b915061039f8361027a565b92508282019050808211156103b7576103b661035a565b5b92915050565b6103c68161027a565b82525050565b60006020820190506103e160008301846103bd565b92915050565b7f65766d6272696467650000000000000000000000000000000000000000000000600082015250565b600061041d6009836102dd565b9150610428826103e7565b602082019050919050565b60008115159050919050565b61044881610433565b82525050565b600081519050919050565b600082825260208201905092915050565b60005b8381101561048857808201518184015260208101905061046d565b60008484015250505050565b6000601f19601f8301169050919050565b60006104b08261044e565b6104ba8185610459565b93506104ca81856020860161046a565b6104d381610494565b840191505092915050565b600060608201905081810360008301526104f781610410565b9050610506602083018561043f565b818103604083015261051881846104a5565b90509392505050565b600081905092915050565b60006105378261044e565b6105418185610521565b935061055181856020860161046a565b80840191505092915050565b6000610569828461052c565b91508190509291505056fea26469706673582212205ede0acfc8f75c66409b2dbf136d3367028f3d3d5694a8a6bb2e8d3dcd503e4c64736f6c63430008120033'),
-        chainId=evmChainId
-    ), evmSendKey)
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
-    retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
-    assert retValue[0], f"push trx should have succeeded: {retValue}"
-    bridgemsgcontractaddr = makeContractAddress("9E126C57330FA71556628e0aabd6B6B6783d99fA", nonce)
-    assert_contract_exist(bridgemsgcontractaddr)
-    Utils.Print("bridge msg contract addr is:" + str(bridgemsgcontractaddr))
-    row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
-    Utils.Print("\taccount row4: ", row4)
-
-    Utils.Print("call bridgereg in evm runtime contract for account evmbridge")
-    prodNode.pushMessage(evmAcc.name, "bridgereg", '["evmbridge","evmbridge","1.0000 EOS"]', '-p {0} -p evmbridge'.format(evmAcc.name), silentErrors=False)
-
-    Utils.Print("push EVM trx to trigger bridgemsg from EVM to notify evmbridge account")
-    amount=1.0000
-    nonce += 1
-    signed_trx = w3.eth.account.sign_transaction(dict(
-        nonce=nonce,
-        gas=100000,      
-        gasPrice=gasP,
-        to=Web3.to_checksum_address(bridgemsgcontractaddr),
-        data=Web3.to_bytes(hexstr='86bf4eff'), #function sendbridgemsg() 
-        value=int(amount*10000*szabo*100),
-        chainId=evmChainId
-    ), evmSendKey)
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
-    retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=False)
-    assert retValue[0], f"push trx to bridge msg contract should have succeeded: {retValue}"
-    row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
-    Utils.Print("\taccount row4: ", row4)
-
-
     # Launch eos-evm-node
     Utils.Print("===== laucnhing eos-evm-node & eos-evm-rpc =====")
     dataDir = Utils.DataDir + "eos_evm"
@@ -990,6 +926,67 @@ try:
     # Transfer funds (now using version=1)
     nonProdNode.transferFunds(cluster.eosioAccount, evmAcc, "111.0000 EOS", "0xB106D2C286183FFC3D1F0C4A6f0753bB20B407c2", waitForTransBlock=True)
     time.sleep(2)
+
+    ### evmtx event order test
+    Utils.Print("Test evmtx event order via evmbridge contract")
+    # // SPDX-License-Identifier: GPL-3.0
+    # pragma solidity >=0.7.0 <0.9.0;
+    # contract BridgeTest {
+    #     uint256 number;
+    #     constructor() {
+    #         number = 41;
+    #     }
+    #     function assertdata(uint256 expect) view public {
+    #         require(number == expect, "assertdata failed");
+    #     }
+    #     function sendbridgemsg() payable public {
+    #         number = number + 1;
+    #         bytes memory receiver_msg = abi.encodeWithSignature("test(uint256)", number);
+    #         address evmaddr = 0xbBBBbBbbbBBBBbbbbbbBBbBB5530EA015b900000;//eosio.evm
+    #         (bool success, ) = evmaddr.call{value: msg.value}(
+    #             abi.encodeWithSignature("bridgeMsgV0(string,bool,bytes)", "evmbridge", true, receiver_msg ));
+    #         if(!success) { revert(); }
+    #     }
+    # }
+    nonce += 1
+    evmChainId = 15555
+    gasP = getGasPrice()
+    signed_trx = w3.eth.account.sign_transaction(dict(
+        nonce=nonce,
+        gas=5000000,       
+        gasPrice=gasP,
+        data=Web3.to_bytes(hexstr='608060405234801561001057600080fd5b5060296000819055506105aa806100286000396000f3fe6080604052600436106100285760003560e01c80628fcf3e1461002d57806386bf4eff14610056575b600080fd5b34801561003957600080fd5b50610054600480360381019061004f91906102b0565b610060565b005b61005e6100a7565b005b80600054146100a4576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161009b9061033a565b60405180910390fd5b50565b60016000546100b69190610389565b600081905550600080546040516024016100d091906103cc565b6040516020818303038152906040527f29e99f07000000000000000000000000000000000000000000000000000000007bffffffffffffffffffffffffffffffffffffffffffffffffffffffff19166020820180517bffffffffffffffffffffffffffffffffffffffffffffffffffffffff83818316178352505050509050600073bbbbbbbbbbbbbbbbbbbbbbbb5530ea015b900000905060008173ffffffffffffffffffffffffffffffffffffffff16346001856040516024016101969291906104de565b6040516020818303038152906040527ff781185b000000000000000000000000000000000000000000000000000000007bffffffffffffffffffffffffffffffffffffffffffffffffffffffff19166020820180517bffffffffffffffffffffffffffffffffffffffffffffffffffffffff8381831617835250505050604051610220919061055d565b60006040518083038185875af1925050503d806000811461025d576040519150601f19603f3d011682016040523d82523d6000602084013e610262565b606091505b505090508061027057600080fd5b505050565b600080fd5b6000819050919050565b61028d8161027a565b811461029857600080fd5b50565b6000813590506102aa81610284565b92915050565b6000602082840312156102c6576102c5610275565b5b60006102d48482850161029b565b91505092915050565b600082825260208201905092915050565b7f61737365727464617461206661696c6564000000000000000000000000000000600082015250565b60006103246011836102dd565b915061032f826102ee565b602082019050919050565b6000602082019050818103600083015261035381610317565b9050919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b60006103948261027a565b915061039f8361027a565b92508282019050808211156103b7576103b661035a565b5b92915050565b6103c68161027a565b82525050565b60006020820190506103e160008301846103bd565b92915050565b7f65766d6272696467650000000000000000000000000000000000000000000000600082015250565b600061041d6009836102dd565b9150610428826103e7565b602082019050919050565b60008115159050919050565b61044881610433565b82525050565b600081519050919050565b600082825260208201905092915050565b60005b8381101561048857808201518184015260208101905061046d565b60008484015250505050565b6000601f19601f8301169050919050565b60006104b08261044e565b6104ba8185610459565b93506104ca81856020860161046a565b6104d381610494565b840191505092915050565b600060608201905081810360008301526104f781610410565b9050610506602083018561043f565b818103604083015261051881846104a5565b90509392505050565b600081905092915050565b60006105378261044e565b6105418185610521565b935061055181856020860161046a565b80840191505092915050565b6000610569828461052c565b91508190509291505056fea26469706673582212205ede0acfc8f75c66409b2dbf136d3367028f3d3d5694a8a6bb2e8d3dcd503e4c64736f6c63430008120033'),
+        chainId=evmChainId
+    ), evmSendKey)
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
+    retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
+    assert retValue[0], f"push trx should have succeeded: {retValue}"
+    bridgemsgcontractaddr = makeContractAddress("9E126C57330FA71556628e0aabd6B6B6783d99fA", nonce)
+    assert_contract_exist(bridgemsgcontractaddr)
+    Utils.Print("bridge msg contract addr is:" + str(bridgemsgcontractaddr))
+    row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
+    Utils.Print("\taccount row4: ", row4)
+
+    Utils.Print("call bridgereg in evm runtime contract for account evmbridge")
+    prodNode.pushMessage(evmAcc.name, "bridgereg", '["evmbridge","evmbridge","1.0000 EOS"]', '-p {0} -p evmbridge'.format(evmAcc.name), silentErrors=False)
+
+    Utils.Print("push EVM trx to trigger bridgemsg from EVM to notify evmbridge account")
+    amount=1.0000
+    nonce += 1
+    signed_trx = w3.eth.account.sign_transaction(dict(
+        nonce=nonce,
+        gas=100000,      
+        gasPrice=gasP,
+        to=Web3.to_checksum_address(bridgemsgcontractaddr),
+        data=Web3.to_bytes(hexstr='86bf4eff'), #function sendbridgemsg() 
+        value=int(amount*10000*szabo*100),
+        chainId=evmChainId
+    ), evmSendKey)
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
+    retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=False)
+    assert retValue[0], f"push trx to bridge msg contract should have succeeded: {retValue}"
+    row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
+    Utils.Print("\taccount row4: ", row4)
 
     # update gas parameter 
     Utils.Print("Update gas parameter: ram price = 100 EOS per MB, gas price = 900Gwei")
