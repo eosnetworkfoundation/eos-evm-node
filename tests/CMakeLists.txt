@@ -11,3 +11,6 @@ configure_file(defertest.wasm . COPYONLY)
 configure_file(defertest.abi . COPYONLY)
 configure_file(defertest2.wasm . COPYONLY)
 configure_file(defertest2.abi . COPYONLY)
+configure_file(evmbridge.wasm . COPYONLY)
+configure_file(evmbridge.abi . COPYONLY)
+
