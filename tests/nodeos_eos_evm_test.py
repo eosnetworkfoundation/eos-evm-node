@@ -1196,6 +1196,62 @@ try:
     # Validate all balances (check evmtx event)
     validate_all_balances()
 
+    ####### BEGIN Test eth_getLogs
+    # // SPDX-License-Identifier: GPL-3.0
+    # pragma solidity >=0.7.0 <0.9.0;
+    # contract Eventor {
+    #     event Deposit(address indexed _from, uint _value);
+    #     function deposit(uint256 _value) public {
+    #         emit Deposit(msg.sender, _value);
+    #     }
+    # }
+
+    Print("Test eth_getLogs (deploy contract)")
+    special_nonce += 1
+    signed_trx = w3.eth.account.sign_transaction(dict(
+        nonce=special_nonce,
+        gas=2000000,
+        maxFeePerGas = 900000000000,
+        maxPriorityFeePerGas = 900000000000,
+        data=Web3.to_bytes(hexstr='608060405234801561001057600080fd5b50610165806100206000396000f3fe608060405234801561001057600080fd5b506004361061002b5760003560e01c8063b6b55f2514610030575b600080fd5b61004a600480360381019061004591906100d8565b61004c565b005b3373ffffffffffffffffffffffffffffffffffffffff167fe1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c826040516100929190610114565b60405180910390a250565b600080fd5b6000819050919050565b6100b5816100a2565b81146100c057600080fd5b50565b6000813590506100d2816100ac565b92915050565b6000602082840312156100ee576100ed61009d565b5b60006100fc848285016100c3565b91505092915050565b61010e816100a2565b82525050565b60006020820190506101296000830184610105565b9291505056fea26469706673582212204e317ada7494f9d6291c2dc3071bb4892e3018729f4b94e5e6aa88bbf8224c3864736f6c634300080d0033'),
+        chainId=15555
+    ), accSpecialKey)
+
+    # Deploy "Eventor" contract
+    eventor_contract = makeContractAddress(accSpecialAdd, special_nonce)
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
+    trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
+    prodNode.waitForTransBlockIfNeeded(trans[1], True);
+    time.sleep(2)
+
+    Print("Test eth_getLogs (call deposit)")
+    special_nonce += 1
+    signed_trx = w3.eth.account.sign_transaction(dict(
+        nonce=special_nonce,
+        gas=2000000,
+        maxFeePerGas = 900000000000,
+        maxPriorityFeePerGas = 900000000000,
+        to=Web3.to_checksum_address(eventor_contract),
+        data=Web3.to_bytes(hexstr='b6b55f250000000000000000000000000000000000000000000000000000000000000016'),
+        chainId=15555
+    ), accSpecialKey)
+
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
+    trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
+    prodNode.waitForTransBlockIfNeeded(trans[1], True);
+    time.sleep(4)
+
+    deposit_tx = w3.eth.get_transaction_receipt(signed_trx.hash)
+    logs = w3.eth.get_logs({
+        'fromBlock': deposit_tx['blockNumber'],
+        'toBlock': deposit_tx['blockNumber']
+    })
+
+    assert(len(logs) == 1)
+    assert(str(logs[0]['address']).lower() == str(eventor_contract).lower())
+
+    ####### END Test eth_getLogs
+
     Utils.Print("checking %s for errors" % (nodeStdErrDir))
     foundErr = False
     stdErrFile = open(nodeStdErrDir, "r")
