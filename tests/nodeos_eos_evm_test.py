@@ -107,6 +107,18 @@ evmNodePOpen = None
 evmRPCPOpen = None
 eosEvmMinerPOpen = None
 
+def assert_contract_exist(contract_addr):
+    Utils.Print("ensure contract {0} exist".format(contract_addr))
+    if contract_addr[:2] == '0x':
+        contract_addr = contract_addr[2:]
+    rows=prodNode.getTable(evmAcc.name, evmAcc.name, "account")
+    for row in rows['rows']:
+        if (str(contract_addr) == str(row['eth_address'])):
+            assert row['code_id'] is not None, "contract {0} should exist".format(contract_addr)
+            return True
+    Utils.Print("evm account table rows: " + json.dumps(rows))
+    assert False, "contract {0} should exist".format(contract_addr)
+
 def interact_with_storage_contract(dest, nonce):
     for i in range(1, 5): # execute a few
         Utils.Print("Execute ETH contract")
@@ -291,7 +303,7 @@ try:
     prodNode = cluster.getNode(0)
     nonProdNode = cluster.getNode(1)
 
-    accounts=createAccountKeys(6)
+    accounts=createAccountKeys(7)
     if accounts is None:
         Utils.errorExit("FAILURE - create keys")
 
@@ -303,10 +315,13 @@ try:
     defertest2Acc = accounts[4]
     aliceAcc = accounts[5]
 
+    accounts[6].name = "evmbridge"
+    evmbridgeAcc = accounts[6]
+
     testWalletName="test"
 
     Print("Creating wallet \"%s\"." % (testWalletName))
-    testWallet=walletMgr.create(testWalletName, [cluster.eosioAccount,accounts[0],accounts[1],accounts[2],accounts[3],accounts[4]])
+    testWallet=walletMgr.create(testWalletName, [cluster.eosioAccount,accounts[0],accounts[1],accounts[2],accounts[3],accounts[4],accounts[5],accounts[6]])
 
     addys = {
         "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266":"0x038318535b54105d4a7aae60c08fc45f9687181b4fdfc625bd1a753fa7397fed75,0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
@@ -355,6 +370,15 @@ try:
     abiFile="defertest2.abi"
     Utils.Print(f"Publish defertest2 contract {contractDir}/{wasmFile} to account {defertest2Acc}")
     prodNode.publishContract(defertest2Acc, contractDir, wasmFile, abiFile, waitForTransBlock=True)
+
+    contractDir=eosEvmBuildRoot + "/tests"
+    wasmFile="evmbridge.wasm"
+    abiFile="evmbridge.abi"
+    Utils.Print(f"Publish evmbridge contract {contractDir}/{wasmFile} to account {evmbridgeAcc}")
+    prodNode.publishContract(evmbridgeAcc, contractDir, wasmFile, abiFile, waitForTransBlock=True)
+    # add eosio.code evmbridge
+    cmd="set account permission evmbridge active --add-code -p evmbridge@active"
+    prodNode.processCleosCmd(cmd, cmd, silentErrors=True, returnType=ReturnType.raw)
 
     # add eosio.code permission to defertest2 account
     cmd="set account permission " + defertest2Acc.name + " active --add-code -p " + defertest2Acc.name + "@active"
@@ -527,6 +551,7 @@ try:
     actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     assert retValue[0], f"push trx should have succeeded: {retValue}"
+    assert_contract_exist(makeContractAddress(fromAdd, nonce))
     nonce = interact_with_storage_contract(makeContractAddress(fromAdd, nonce), nonce)
 
     if genesisJson[0] != '/': genesisJson = os.path.realpath(genesisJson)
@@ -820,6 +845,7 @@ try:
 
 
     # Launch eos-evm-node
+    Utils.Print("===== laucnhing eos-evm-node & eos-evm-rpc =====")
     dataDir = Utils.DataDir + "eos_evm"
     nodeStdOutDir = dataDir + "/eos-evm-node.stdout"
     nodeStdErrDir = dataDir + "/eos-evm-node.stderr"
@@ -900,6 +926,69 @@ try:
     # Transfer funds (now using version=1)
     nonProdNode.transferFunds(cluster.eosioAccount, evmAcc, "111.0000 EOS", "0xB106D2C286183FFC3D1F0C4A6f0753bB20B407c2", waitForTransBlock=True)
     time.sleep(2)
+
+    ### evmtx event order test
+    Utils.Print("Test evmtx event order via evmbridge contract")
+    # // SPDX-License-Identifier: GPL-3.0
+    # pragma solidity >=0.7.0 <0.9.0;
+    # contract BridgeTest {
+    #     uint256 number;
+    #     constructor() {
+    #          number = 41;
+    #     }
+    #     function assertdata(uint256 expect) payable public {
+    #         require(number == expect, "assertdata failed");
+    #         number = number + 1;
+    #     }
+    #     function sendbridgemsg() payable public {
+    #         number = number + 1;
+    #         bytes memory receiver_msg = abi.encodeWithSignature("test(uint256)", number);
+    #         address evmaddr = 0xbBBBbBbbbBBBBbbbbbbBBbBB5530EA015b900000;//eosio.evm
+    #         (bool success, ) = evmaddr.call{value: msg.value}(
+    #             abi.encodeWithSignature("bridgeMsgV0(string,bool,bytes)", "evmbridge", true, receiver_msg ));
+    #         if(!success) { revert(); }
+    #     }
+    # }
+    #
+    nonce += 1
+    evmChainId = 15555
+    gasP = getGasPrice()
+    signed_trx = w3.eth.account.sign_transaction(dict(
+        nonce=nonce,
+        gas=5000000,       
+        gasPrice=gasP,
+        data=Web3.to_bytes(hexstr='608060405234801561001057600080fd5b5060296000819055506105b2806100286000396000f3fe6080604052600436106100285760003560e01c80628fcf3e1461002d57806386bf4eff14610049575b600080fd5b610047600480360381019061004291906102b8565b610053565b005b6100516100af565b005b8060005414610097576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161008e90610342565b60405180910390fd5b60016000546100a69190610391565b60008190555050565b60016000546100be9190610391565b600081905550600080546040516024016100d891906103d4565b6040516020818303038152906040527f29e99f07000000000000000000000000000000000000000000000000000000007bffffffffffffffffffffffffffffffffffffffffffffffffffffffff19166020820180517bffffffffffffffffffffffffffffffffffffffffffffffffffffffff83818316178352505050509050600073bbbbbbbbbbbbbbbbbbbbbbbb5530ea015b900000905060008173ffffffffffffffffffffffffffffffffffffffff163460018560405160240161019e9291906104e6565b6040516020818303038152906040527ff781185b000000000000000000000000000000000000000000000000000000007bffffffffffffffffffffffffffffffffffffffffffffffffffffffff19166020820180517bffffffffffffffffffffffffffffffffffffffffffffffffffffffff83818316178352505050506040516102289190610565565b60006040518083038185875af1925050503d8060008114610265576040519150601f19603f3d011682016040523d82523d6000602084013e61026a565b606091505b505090508061027857600080fd5b505050565b600080fd5b6000819050919050565b61029581610282565b81146102a057600080fd5b50565b6000813590506102b28161028c565b92915050565b6000602082840312156102ce576102cd61027d565b5b60006102dc848285016102a3565b91505092915050565b600082825260208201905092915050565b7f61737365727464617461206661696c6564000000000000000000000000000000600082015250565b600061032c6011836102e5565b9150610337826102f6565b602082019050919050565b6000602082019050818103600083015261035b8161031f565b9050919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b600061039c82610282565b91506103a783610282565b92508282019050808211156103bf576103be610362565b5b92915050565b6103ce81610282565b82525050565b60006020820190506103e960008301846103c5565b92915050565b7f65766d6272696467650000000000000000000000000000000000000000000000600082015250565b60006104256009836102e5565b9150610430826103ef565b602082019050919050565b60008115159050919050565b6104508161043b565b82525050565b600081519050919050565b600082825260208201905092915050565b60005b83811015610490578082015181840152602081019050610475565b60008484015250505050565b6000601f19601f8301169050919050565b60006104b882610456565b6104c28185610461565b93506104d2818560208601610472565b6104db8161049c565b840191505092915050565b600060608201905081810360008301526104ff81610418565b905061050e6020830185610447565b818103604083015261052081846104ad565b90509392505050565b600081905092915050565b600061053f82610456565b6105498185610529565b9350610559818560208601610472565b80840191505092915050565b60006105718284610534565b91508190509291505056fea2646970667358221220ac18e6f72606f415174ea5fa2cf02da58e2ec7af6b59282e166efa50f79aef3164736f6c63430008120033'),
+        chainId=evmChainId
+    ), evmSendKey)
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
+    retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
+    assert retValue[0], f"push trx should have succeeded: {retValue}"
+    bridgemsgcontractaddr = makeContractAddress("9E126C57330FA71556628e0aabd6B6B6783d99fA", nonce)
+    assert_contract_exist(bridgemsgcontractaddr)
+    Utils.Print("bridge msg contract addr is:" + str(bridgemsgcontractaddr))
+    row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
+    Utils.Print("\taccount row4: ", row4)
+
+    Utils.Print("call bridgereg in evm runtime contract for account evmbridge")
+    prodNode.pushMessage(evmAcc.name, "bridgereg", '["evmbridge","evmbridge","1.0000 EOS"]', '-p {0} -p evmbridge'.format(evmAcc.name), silentErrors=False)
+
+    Utils.Print("push EVM trx to trigger bridgemsg from EVM to notify evmbridge account")
+    amount=1.0000
+    nonce += 1
+    signed_trx = w3.eth.account.sign_transaction(dict(
+        nonce=nonce,
+        gas=100000,      
+        gasPrice=gasP,
+        to=Web3.to_checksum_address(bridgemsgcontractaddr),
+        data=Web3.to_bytes(hexstr='86bf4eff'), #function sendbridgemsg() 
+        value=int(amount*10000*szabo*100),
+        chainId=evmChainId
+    ), evmSendKey)
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
+    retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=False)
+    assert retValue[0], f"push trx to bridge msg contract should have succeeded: {retValue}"
+    row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
+    Utils.Print("\taccount row4: ", row4)
 
     # update gas parameter 
     Utils.Print("Update gas parameter: ram price = 100 EOS per MB, gas price = 900Gwei")
@@ -1106,6 +1195,62 @@ try:
     Utils.Print("Validate all balances (check evmtx event processing)")
     # Validate all balances (check evmtx event)
     validate_all_balances()
+
+    ####### BEGIN Test eth_getLogs
+    # // SPDX-License-Identifier: GPL-3.0
+    # pragma solidity >=0.7.0 <0.9.0;
+    # contract Eventor {
+    #     event Deposit(address indexed _from, uint _value);
+    #     function deposit(uint256 _value) public {
+    #         emit Deposit(msg.sender, _value);
+    #     }
+    # }
+
+    Print("Test eth_getLogs (deploy contract)")
+    special_nonce += 1
+    signed_trx = w3.eth.account.sign_transaction(dict(
+        nonce=special_nonce,
+        gas=2000000,
+        maxFeePerGas = 900000000000,
+        maxPriorityFeePerGas = 900000000000,
+        data=Web3.to_bytes(hexstr='608060405234801561001057600080fd5b50610165806100206000396000f3fe608060405234801561001057600080fd5b506004361061002b5760003560e01c8063b6b55f2514610030575b600080fd5b61004a600480360381019061004591906100d8565b61004c565b005b3373ffffffffffffffffffffffffffffffffffffffff167fe1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c826040516100929190610114565b60405180910390a250565b600080fd5b6000819050919050565b6100b5816100a2565b81146100c057600080fd5b50565b6000813590506100d2816100ac565b92915050565b6000602082840312156100ee576100ed61009d565b5b60006100fc848285016100c3565b91505092915050565b61010e816100a2565b82525050565b60006020820190506101296000830184610105565b9291505056fea26469706673582212204e317ada7494f9d6291c2dc3071bb4892e3018729f4b94e5e6aa88bbf8224c3864736f6c634300080d0033'),
+        chainId=15555
+    ), accSpecialKey)
+
+    # Deploy "Eventor" contract
+    eventor_contract = makeContractAddress(accSpecialAdd, special_nonce)
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
+    trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
+    prodNode.waitForTransBlockIfNeeded(trans[1], True);
+    time.sleep(2)
+
+    Print("Test eth_getLogs (call deposit)")
+    special_nonce += 1
+    signed_trx = w3.eth.account.sign_transaction(dict(
+        nonce=special_nonce,
+        gas=2000000,
+        maxFeePerGas = 900000000000,
+        maxPriorityFeePerGas = 900000000000,
+        to=Web3.to_checksum_address(eventor_contract),
+        data=Web3.to_bytes(hexstr='b6b55f250000000000000000000000000000000000000000000000000000000000000016'),
+        chainId=15555
+    ), accSpecialKey)
+
+    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
+    trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
+    prodNode.waitForTransBlockIfNeeded(trans[1], True);
+    time.sleep(4)
+
+    deposit_tx = w3.eth.get_transaction_receipt(signed_trx.hash)
+    logs = w3.eth.get_logs({
+        'fromBlock': deposit_tx['blockNumber'],
+        'toBlock': deposit_tx['blockNumber']
+    })
+
+    assert(len(logs) == 1)
+    assert(str(logs[0]['address']).lower() == str(eventor_contract).lower())
+
+    ####### END Test eth_getLogs
 
     Utils.Print("checking %s for errors" % (nodeStdErrDir))
     foundErr = False
