@@ -118,7 +118,7 @@ class ship_receiver_plugin_impl : std::enable_shared_from_this<ship_receiver_plu
          eosio::ship_protocol::request req = eosio::ship_protocol::get_blocks_request_v0{
             .start_block_num        = start,
             .end_block_num          = std::numeric_limits<uint32_t>::max(),
-            .max_messages_in_flight = 4*1024,
+            .max_messages_in_flight = std::numeric_limits<uint32_t>::max(),
             .have_positions         = {},
             .irreversible_only      = false,
             .fetch_block            = true,
@@ -130,11 +130,6 @@ class ship_receiver_plugin_impl : std::enable_shared_from_this<ship_receiver_plu
 
       auto send_get_status_request() {
          eosio::ship_protocol::request req = eosio::ship_protocol::get_status_request_v0{};
-         return send_request(req);
-      }
-
-      auto send_get_blocks_ack_request(uint32_t num_messages) {
-         eosio::ship_protocol::request req = eosio::ship_protocol::get_blocks_ack_request_v0{num_messages};
          return send_request(req);
       }
 
@@ -348,12 +343,10 @@ class ship_receiver_plugin_impl : std::enable_shared_from_this<ship_receiver_plu
       }
 
       void start_read() {
-         static size_t num_messages = 0;
          async_read([this](const auto ec, auto buff) {
             if (ec) {
                SILK_INFO << "Trying to recover from SHiP read failure.";
                // Reconnect and restart sync.
-               num_messages = 0;
                reset_connection();
                return;
             }
@@ -370,16 +363,6 @@ class ship_receiver_plugin_impl : std::enable_shared_from_this<ship_receiver_plu
             retry_count = 0;
 
             native_blocks_channel.publish(80, std::make_shared<channels::native_block>(std::move(*block)));
-
-            if(++num_messages % 1024 == 0) {
-               //SILK_INFO << "Block #" << block->block_num;
-               auto ec = send_get_blocks_ack_request(num_messages);
-               if (ec) {
-                  num_messages = 0;
-                  reset_connection();
-                  return;
-               }
-            }
 
             start_read();
          });
