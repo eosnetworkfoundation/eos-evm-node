@@ -331,6 +331,7 @@ jobs:
           pip install eth-brownie
           npm install -g ganache
           pip install flask
+          pip install flask-cors --upgrade
           brownie networks add Ethereum localhost5000 host=http://127.0.0.1:5000 chainid=15555
           ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }}/tests/nodeos_eos_evm_brownietest.py -v --eos-evm-contract-root ${{ steps.evm-contract.outputs.EVM_CONTRACT }} --eos-evm-build-root ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }} --use-miner ${{ steps.eos-evm-miner-build.outputs.EVM_MINER_ROOT }}
           
