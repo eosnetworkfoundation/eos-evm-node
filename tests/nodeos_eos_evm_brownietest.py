@@ -153,6 +153,24 @@ def interact_with_storage_contract(dest, nonce):
 
     return nonce
 
+def setEosEvmMinerEnv():
+    os.environ["PRIVATE_KEY"]=f"{minerAcc.activePrivateKey}"
+    os.environ["MINER_ACCOUNT"]=f"{minerAcc.name}"
+    os.environ["RPC_ENDPOINTS"]="http://127.0.0.1:8888"
+    os.environ["PORT"]="18888"
+    os.environ["LOCK_GAS_PRICE"]="true"
+    os.environ["MINER_PERMISSION"]="active"
+    os.environ["EXPIRE_SEC"]="60"
+
+    Utils.Print(f"Set up configuration of eos-evm-miner via environment variables.")
+    Utils.Print(f"PRIVATE_KEY: {os.environ.get('PRIVATE_KEY')}")
+    Utils.Print(f"MINER_ACCOUNT: {os.environ.get('MINER_ACCOUNT')}")
+    Utils.Print(f"RPC_ENDPOINTS: {os.environ.get('RPC_ENDPOINTS')}")
+    Utils.Print(f"PORT: {os.environ.get('PORT')}")
+    Utils.Print(f"LOCK_GAS_PRICE: {os.environ.get('LOCK_GAS_PRICE')}")
+    Utils.Print(f"MINER_PERMISSION: {os.environ.get('MINER_PERMISSION')}")
+    Utils.Print(f"EXPIRE_SEC: {os.environ.get('EXPIRE_SEC')}")
+
 def processUrllibRequest(endpoint, payload={}, silentErrors=False, exitOnError=False, exitMsg=None, returnType=ReturnType.json):
     cmd = f"{endpoint}"
     req = urllib.request.Request(cmd, method="POST")
@@ -383,6 +401,26 @@ try:
     Utils.Print("Open balance for miner")
     trans=prodNode.pushMessage(evmAcc.name, "open", '[{0}]'.format(minerAcc.name), '-p {0}'.format(minerAcc.name))
 
+    #
+    # Setup eos-evm-miner
+    #
+    if useMiner is not None:
+        setEosEvmMinerEnv()
+        dataDir = Utils.DataDir + "eos-evm-miner"
+        outDir = dataDir + "/eos-evm-miner.stdout"
+        errDir = dataDir + "/eos-evm-miner.stderr"
+        shutil.rmtree(dataDir, ignore_errors=True)
+        os.makedirs(dataDir)
+        outFile = open(outDir, "w")
+        errFile = open(errDir, "w")
+        cmd = "node dist/index.js"
+        Utils.Print("Launching: %s" % cmd)
+        cmdArr=shlex.split(cmd)
+        eosEvmMinerPOpen=subprocess.Popen(cmdArr, stdout=outFile, stderr=errFile, cwd=useMiner)
+        time.sleep(10) # let miner start up
+    else:
+        assert(useMiner is not None, "userMiner must be set")
+
     Utils.Print("Transfer initial balances")
 
     # init with 1 Million EOS
@@ -546,17 +584,26 @@ try:
     time.sleep(2.0)
 
     Utils.Print("test brownie connection")
-    brownie.accounts.add("a3f1b69da92a0233ce29485d3049a4ace39e8d384bbc2557e3fc60940ce4e954")
     brownie.network.connect('localhost5000')
-    Utils.Print(brownie.chain.id)
+    brownie.accounts.add("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+    brownie.accounts.add("a3f1b69da92a0233ce29485d3049a4ace39e8d384bbc2557e3fc60940ce4e954")
+    Utils.Print("chain id is:" + str(brownie.chain.id))
     Utils.Print("number of blocks:" + str(len(brownie.chain)))
 
-    Utils.Print("Sleep some time and exit")
-    time.sleep(10)
-    
+    for i in range(0, len(brownie.accounts)):
+        Utils.Print("brownie.accounts[{0}] balance: {1}".format(i, brownie.accounts[i].balance()))
+
+    brownie.accounts[0].transfer(brownie.accounts[1], 100000000, gas_price=gasP)
+    time.sleep(2)
+
+    Utils.Print("after transfer via brownie")
+    for i in range(0, len(brownie.accounts)):
+        Utils.Print("brownie.accounts[{0}] balance: {1}".format(i, brownie.accounts[i].balance()))   
+
     Utils.Print("test success, ready to shut down cluster")
     testSuccessful = True
-    
+
+except Exception as e: print("Exception:" + str(e))
 finally:
     Utils.Print("shutting down cluster")
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
