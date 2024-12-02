@@ -317,13 +317,13 @@ jobs:
 
       - name: Test Leap Integration
         run: |
-          mkdir test_run_root
+          mkdir -p test_run_root
           cd test_run_root
           ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }}/tests/nodeos_eos_evm_test.py -v --eos-evm-contract-root ${{ steps.evm-contract.outputs.EVM_CONTRACT }} --eos-evm-build-root ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }} --use-miner ${{ steps.eos-evm-miner-build.outputs.EVM_MINER_ROOT }}
           
       - name: Test Leap Integration - with Brownie Framework
         run: |
-          mkdir test_run_root
+          mkdir -p test_run_root
           cd test_run_root
           pip install eth-brownie
           sudo npm install -g ganache
