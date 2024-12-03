@@ -291,7 +291,9 @@ try:
     shipNodeNum = total_nodes - 1
     specificExtraNodeosArgs[shipNodeNum]="--plugin eosio::state_history_plugin --state-history-endpoint 127.0.0.1:8999 --trace-history --chain-state-history --disable-replay-opts "
 
-    extraNodeosArgs="--contracts-console --resource-monitor-not-shutdown-on-threshold-exceeded --transaction-retry-max-storage-size-gb 1"
+    specificExtraNodeosArgs[1]="--transaction-retry-max-storage-size-gb 1 "
+
+    extraNodeosArgs="--contracts-console --resource-monitor-not-shutdown-on-threshold-exceeded "
 
     Print("Stand up cluster")
     if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, extraNodeosArgs=extraNodeosArgs, specificExtraNodeosArgs=specificExtraNodeosArgs,loadSystemContract=False,activateIF=True,delay=5) is False:
@@ -404,7 +406,7 @@ try:
     # Setup eos-evm-miner
     #
     if useMiner is not None:
-        setEosEvmMinerEnv(prodNode)
+        setEosEvmMinerEnv(nonProdNode)
         dataDir = Utils.DataDir + "eos-evm-miner"
         outDir = dataDir + "/eos-evm-miner.stdout"
         errDir = dataDir + "/eos-evm-miner.stderr"
