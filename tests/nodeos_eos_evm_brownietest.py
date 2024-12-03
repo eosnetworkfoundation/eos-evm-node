@@ -22,8 +22,6 @@ from binascii import unhexlify
 from web3 import Web3
 import rlp
 
-from flask import Flask, request, jsonify
-from flask_cors import CORS
 import requests
 import json
 import threading
@@ -116,6 +114,7 @@ total_nodes=pnodes + 2
 evmNodePOpen = None
 evmRPCPOpen = None
 eosEvmMinerPOpen = None
+flaskProcessPopen = None
 
 def assert_contract_exist(contract_addr):
     Utils.Print("ensure contract {0} exist".format(contract_addr))
@@ -553,38 +552,7 @@ try:
     # time.sleep(2)
 
     Utils.Print("start Flask server to separate read/write requests")
-    app = Flask(__name__)
-    CORS(app)
-    writemethods = {"eth_sendRawTransaction","eth_gasPrice"}
-    readEndpoint = "http://127.0.0.1:8881"
-    writeEndpoint = os.getenv("WRITE_RPC_ENDPOINT", "http://127.0.0.1:18888")
-    listenPort = os.getenv("FLASK_SERVER_PORT", 5000)
-
-    @app.route("/", methods=["POST"])
-    def default():
-        def forward_request(req):
-            if type(req) == dict and ("method" in req) and (req["method"] in writemethods):
-                print("send req to miner:" + str(req))
-                resp = requests.post(writeEndpoint, json.dumps(req), headers={"Accept":"application/json","Content-Type":"application/json"}).json()
-                print("got resp from miner:" + str(resp))
-                return resp
-            else:
-                print("send req to eos-evm-rpc:" + str(req))
-                resp = requests.post(readEndpoint, json.dumps(req), headers={"Accept":"application/json","Content-Type":"application/json"}).json()
-                print("got from eos-evm-rpc:" + str(resp))
-                return resp;
-
-        request_data = request.get_json()
-        if type(request_data) == dict:
-            return jsonify(forward_request(request_data))
-
-        res = []
-        for r in request_data:
-            res.append(forward_request(r))
-
-        return jsonify(res)
-
-    th = threading.Thread(target=lambda: app.run(host='0.0.0.0', port=listenPort, debug=True, use_reloader=False)).start()
+    flaskProcessPopen=subprocess.Popen(["python3", "./flask_proxy.py"])
     time.sleep(2.0)
 
     Utils.Print("test brownie connection")
@@ -621,7 +589,8 @@ finally:
             evmRPCPOpen.kill()
         if eosEvmMinerPOpen is not None:
             eosEvmMinerPOpen.kill()
-    os.kill(os.getpid(), signal.SIGKILL)
+    if flaskProcessPopen is not None:
+        flaskProcessPopen.kill()
 
 exitCode = 0 if testSuccessful else 1
 exit(exitCode)
