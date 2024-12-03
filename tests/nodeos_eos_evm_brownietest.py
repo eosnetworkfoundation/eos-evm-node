@@ -552,7 +552,7 @@ try:
     # time.sleep(2)
 
     Utils.Print("start Flask server to separate read/write requests")
-    flaskProcessPopen=subprocess.Popen(["python3", "./flask_proxy.py"])
+    flaskProcessPopen=subprocess.Popen(["python3", os.getcwd() + "/flask_proxy.py"])
     time.sleep(2.0)
 
     Utils.Print("test brownie connection")
