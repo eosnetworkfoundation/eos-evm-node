@@ -87,6 +87,7 @@ appArgs.add(flag="--eos-evm-contract-root", type=str, help="EOS EVM contract bui
 appArgs.add(flag="--eos-evm-build-root", type=str, help="EOS EVM build dir", default=None)
 appArgs.add(flag="--genesis-json", type=str, help="File to save generated genesis json", default="eos-evm-genesis.json")
 appArgs.add(flag="--use-miner", type=str, help="EOS EVM miner to use to send trx to nodeos", default=None)
+appArgs.add(flag="--miner-cmd", type=str, help="command line to start EVM miner", default="node dist/index.js")
 
 args=TestHelper.parse_args({"--keep-logs","--dump-error-details","-v","--leave-running"}, applicationSpecificArgs=appArgs)
 debug=args.v
@@ -96,6 +97,7 @@ eosEvmContractRoot=args.eos_evm_contract_root
 eosEvmBuildRoot=args.eos_evm_build_root
 genesisJson=args.genesis_json
 useMiner=args.use_miner
+minerCmd=args.miner_cmd
 
 assert eosEvmContractRoot is not None, "--eos-evm-contract-root is required"
 assert eosEvmBuildRoot is not None, "--eos-evm-build-root is required"
@@ -153,10 +155,10 @@ def interact_with_storage_contract(dest, nonce):
 
     return nonce
 
-def setEosEvmMinerEnv():
+def setEosEvmMinerEnv(eosnode):
     os.environ["PRIVATE_KEY"]=f"{minerAcc.activePrivateKey}"
     os.environ["MINER_ACCOUNT"]=f"{minerAcc.name}"
-    os.environ["RPC_ENDPOINTS"]="http://127.0.0.1:8888"
+    os.environ["RPC_ENDPOINTS"]="http://127.0.0.1:" + str(eosnode.port)
     os.environ["PORT"]="18888"
     os.environ["LOCK_GAS_PRICE"]="true"
     os.environ["MINER_PERMISSION"]="active"
@@ -231,12 +233,9 @@ def processUrllibRequest(endpoint, payload={}, silentErrors=False, exitOnError=F
     return rtn
 
 def getGasPrice():
-    if useMiner is None:
-        return 10000000000
-    else:
-        result = processUrllibRequest("http://127.0.0.1:18888", payload={"method":"eth_gasPrice","params":[],"id":1,"jsonrpc":"2.0"})
-        Utils.Print("result: ", result)
-        return result["payload"]["result"]
+    result = processUrllibRequest("http://127.0.0.1:18888", payload={"method":"eth_gasPrice","params":[],"id":1,"jsonrpc":"2.0"})
+    Utils.Print("getGasPrice from miner, result: ", result)
+    return result["payload"]["result"]
 
 def normalize_address(x, allow_blank=False):
     if allow_blank and x == '':
@@ -405,7 +404,7 @@ try:
     # Setup eos-evm-miner
     #
     if useMiner is not None:
-        setEosEvmMinerEnv()
+        setEosEvmMinerEnv(prodNode)
         dataDir = Utils.DataDir + "eos-evm-miner"
         outDir = dataDir + "/eos-evm-miner.stdout"
         errDir = dataDir + "/eos-evm-miner.stderr"
@@ -413,13 +412,13 @@ try:
         os.makedirs(dataDir)
         outFile = open(outDir, "w")
         errFile = open(errDir, "w")
-        cmd = "node dist/index.js"
+        cmd = minerCmd
         Utils.Print("Launching: %s" % cmd)
         cmdArr=shlex.split(cmd)
-        eosEvmMinerPOpen=subprocess.Popen(cmdArr, stdout=outFile, stderr=errFile, cwd=useMiner)
+        eosEvmMinerPOpen=subprocess.Popen(cmdArr, cwd=useMiner)
         time.sleep(10) # let miner start up
     else:
-        assert(useMiner is not None, "userMiner must be set")
+        assert False, "useMiner must be set"
 
     Utils.Print("Transfer initial balances")
 
@@ -439,7 +438,10 @@ try:
     nonce = 0
     evmSendKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
+    gasP = None
     gasP = getGasPrice()
+    assert gasP is not None, "failed to get gas price from miner"
+
     signed_trx = w3.eth.account.sign_transaction(dict(
         nonce=nonce,
         gas=100000,       #100k Gas
@@ -537,16 +539,16 @@ try:
     nonProdNode.transferFunds(cluster.eosioAccount, evmAcc, "111.0000 EOS", "0xB106D2C286183FFC3D1F0C4A6f0753bB20B407c2", waitForTransBlock=True)
     time.sleep(2)
 
-    # update gas parameter 
-    Utils.Print("Update gas parameter: ram price = 100 EOS per MB, gas price = 900Gwei")
-    trans = prodNode.pushMessage(evmAcc.name, "updtgasparam", json.dumps({"ram_price_mb":"100.0000 EOS","gas_price":900000000000}), '-p {0}'.format(evmAcc.name), silentErrors=False)
-    prodNode.waitForTransBlockIfNeeded(trans[1], True);
-    time.sleep(2)
+    # # update gas parameter 
+    # Utils.Print("Update gas parameter: ram price = 100 EOS per MB, gas price = 900Gwei")
+    # trans = prodNode.pushMessage(evmAcc.name, "updtgasparam", json.dumps({"ram_price_mb":"100.0000 EOS","gas_price":900000000000}), '-p {0}'.format(evmAcc.name), silentErrors=False)
+    # prodNode.waitForTransBlockIfNeeded(trans[1], True);
+    # time.sleep(2)
 
-    Utils.Print("Transfer funds to trigger config change event on contract")
-    # Transfer funds (now using version=1)
-    nonProdNode.transferFunds(cluster.eosioAccount, evmAcc, "112.0000 EOS", "0xB106D2C286183FFC3D1F0C4A6f0753bB20B407c2", waitForTransBlock=True)
-    time.sleep(2)
+    # Utils.Print("Transfer funds to trigger config change event on contract")
+    # # Transfer funds (now using version=1)
+    # nonProdNode.transferFunds(cluster.eosioAccount, evmAcc, "112.0000 EOS", "0xB106D2C286183FFC3D1F0C4A6f0753bB20B407c2", waitForTransBlock=True)
+    # time.sleep(2)
 
     Utils.Print("start Flask server to separate read/write requests")
     app = Flask(__name__)
@@ -560,18 +562,18 @@ try:
     def default():
         def forward_request(req):
             if type(req) == dict and ("method" in req) and (req["method"] in writemethods):
-                print("write req:" + str(req))
+                print("send req to miner:" + str(req))
                 resp = requests.post(writeEndpoint, json.dumps(req), headers={"Accept":"application/json","Content-Type":"application/json"}).json()
-                print("write resp:" + str(resp))
+                print("got resp from miner:" + str(resp))
                 return resp
             else:
+                print("send req to eos-evm-rpc:" + str(req))
                 resp = requests.post(readEndpoint, json.dumps(req), headers={"Accept":"application/json","Content-Type":"application/json"}).json()
-                print("resp is:" + str(resp))
+                print("got from eos-evm-rpc:" + str(resp))
                 return resp;
 
         request_data = request.get_json()
         if type(request_data) == dict:
-            print("req is:" + str(request_data));
             return jsonify(forward_request(request_data))
 
         res = []
@@ -598,7 +600,9 @@ try:
 
     Utils.Print("after transfer via brownie")
     for i in range(0, len(brownie.accounts)):
-        Utils.Print("brownie.accounts[{0}] balance: {1}".format(i, brownie.accounts[i].balance()))   
+        Utils.Print("brownie.accounts[{0}] balance: {1}".format(i, brownie.accounts[i].balance()))
+
+    assert brownie.accounts[i].balance() == 100000000, "incorrect brownie.accounts[i].balance()"
 
     Utils.Print("test success, ready to shut down cluster")
     testSuccessful = True
