@@ -317,23 +317,20 @@ jobs:
 
       - name: Test Leap Integration
         run: |
-          mkdir -p test_run_root
+          mkdir test_run_root
           cd test_run_root
           ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }}/tests/nodeos_eos_evm_test.py -v --eos-evm-contract-root ${{ steps.evm-contract.outputs.EVM_CONTRACT }} --eos-evm-build-root ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }} --use-miner ${{ steps.eos-evm-miner-build.outputs.EVM_MINER_ROOT }}
           
       - name: Test Leap Integration - with Brownie Framework
         run: |
-          mkdir -p test_run_root
+          mkdir test_run_root
           cd test_run_root
-          pip install --upgrade web3
-          pip install otree
-          pip install websocket-client
           pip install eth-brownie
-          npm install -g ganache
-          pip install flask
-          pip install flask-cors --upgrade
+          sudo npm install -g ganache
           brownie networks add Ethereum localhost5000 host=http://127.0.0.1:5000 chainid=15555
-          ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }}/tests/nodeos_eos_evm_brownietest.py -v --eos-evm-contract-root ${{ steps.evm-contract.outputs.EVM_CONTRACT }} --eos-evm-build-root ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }} --use-miner ${{ steps.eos-evm-miner-build.outputs.EVM_MINER_ROOT }}
+          pip install black
+          pip install click
+          ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }}/tests/nodeos_eos_evm_brownietest.py -v --eos-evm-contract-root ${{ steps.evm-contract.outputs.EVM_CONTRACT }} --eos-evm-build-root ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }} --use-miner ${{ steps.eos-evm-miner-build.outputs.EVM_MINER_ROOT }} --flask-proxy-root ${{ steps.evm-node-build.outputs.EVM_NODE_BUILD }}/tests/
           
       - name: Test Leap Integration - different gas token
         run: |

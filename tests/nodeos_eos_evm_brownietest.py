@@ -86,6 +86,7 @@ appArgs.add(flag="--eos-evm-build-root", type=str, help="EOS EVM build dir", def
 appArgs.add(flag="--genesis-json", type=str, help="File to save generated genesis json", default="eos-evm-genesis.json")
 appArgs.add(flag="--use-miner", type=str, help="EOS EVM miner to use to send trx to nodeos", default=None)
 appArgs.add(flag="--miner-cmd", type=str, help="command line to start EVM miner", default="node dist/index.js")
+appArgs.add(flag="--flask-proxy-root", type=str, help="command line to start EVM miner", default=".")
 
 args=TestHelper.parse_args({"--keep-logs","--dump-error-details","-v","--leave-running"}, applicationSpecificArgs=appArgs)
 debug=args.v
@@ -96,6 +97,7 @@ eosEvmBuildRoot=args.eos_evm_build_root
 genesisJson=args.genesis_json
 useMiner=args.use_miner
 minerCmd=args.miner_cmd
+flaskProxyRoot=args.flask_proxy_root
 
 assert eosEvmContractRoot is not None, "--eos-evm-contract-root is required"
 assert eosEvmBuildRoot is not None, "--eos-evm-build-root is required"
@@ -552,7 +554,7 @@ try:
     # time.sleep(2)
 
     Utils.Print("start Flask server to separate read/write requests")
-    flaskProcessPopen=subprocess.Popen(["python3", os.getcwd() + "/flask_proxy.py"])
+    flaskProcessPopen=subprocess.Popen(["python3", flaskProxyRoot + "/flask_proxy.py"])
     time.sleep(2.0)
 
     Utils.Print("test brownie connection")
