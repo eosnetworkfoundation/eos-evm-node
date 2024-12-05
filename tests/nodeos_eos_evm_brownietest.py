@@ -419,7 +419,6 @@ try:
         Utils.Print("Launching: %s" % cmd)
         cmdArr=shlex.split(cmd)
         eosEvmMinerPOpen=subprocess.Popen(cmdArr, cwd=useMiner)
-        time.sleep(10) # let miner start up
     else:
         assert False, "useMiner must be set"
 
@@ -491,7 +490,7 @@ try:
     Utils.Print("\tBefore transfer table rows:", rows)
 
     # Launch eos-evm-node
-    Utils.Print("===== laucnhing eos-evm-node & eos-evm-rpc =====")
+    Utils.Print("===== laucnhing eos-evm-node =====")
     dataDir = Utils.DataDir + "eos_evm"
     nodeStdOutDir = dataDir + "/eos-evm-node.stdout"
     nodeStdErrDir = dataDir + "/eos-evm-node.stderr"
@@ -504,9 +503,29 @@ try:
     cmdArr=shlex.split(cmd)
     evmNodePOpen=Utils.delayedCheckOutput(cmdArr, stdout=outFile, stderr=errFile)
 
-    time.sleep(10) # allow time to sync trxs
+    # Switch to version 1
+    Utils.Print("Switch to evm_version 1")
+    actData = {"version":1}
+    trans = prodNode.pushMessage(evmAcc.name, "setversion", json.dumps(actData), '-p {0}'.format(evmAcc.name), silentErrors=True)
+    prodNode.waitForTransBlockIfNeeded(trans[1], True);
+    time.sleep(1.5)
+
+    # Transfer funds to trigger version change
+    nonProdNode.transferFunds(cluster.eosioAccount, evmAcc, "111.0000 EOS", "0xB106D2C286183FFC3D1F0C4A6f0753bB20B407c2", waitForTransBlock=True)
+    time.sleep(1.5)
+
+    # # update gas parameter 
+    Utils.Print("Update gas parameter: ram price = 100 EOS per MB, gas price = 300Gwei")
+    trans = prodNode.pushMessage(evmAcc.name, "updtgasparam", json.dumps({"ram_price_mb":"100.0000 EOS","gas_price":300000000000}), '-p {0}'.format(evmAcc.name), silentErrors=False)
+    prodNode.waitForTransBlockIfNeeded(trans[1], True);
+    time.sleep(1.5)
+
+    Utils.Print("Transfer funds to trigger config change event on contract")
+    # Transfer funds (now using version=1)
+    nonProdNode.transferFunds(cluster.eosioAccount, evmAcc, "112.0000 EOS", "0xB106D2C286183FFC3D1F0C4A6f0753bB20B407c2", waitForTransBlock=True)
 
     # Launch eos-evm-rpc
+    Utils.Print("===== laucnhing eos-evm-rpc =====")
     rpcStdOutDir = dataDir + "/eos-evm-rpc.stdout"
     rpcStdErrDir = dataDir + "/eos-evm-rpc.stderr"
     outFile = open(rpcStdOutDir, "w")
@@ -528,34 +547,12 @@ try:
                 raise
             assert r == int(row['balance'],16), f"{row['eth_address']} {r} != {int(row['balance'],16)}"
 
-    # Validate all balances are the same on both sides
-    validate_all_balances()
-
-    # Switch to version 1
-    Utils.Print("Switch to evm_version 1")
-    actData = {"version":1}
-    trans = prodNode.pushMessage(evmAcc.name, "setversion", json.dumps(actData), '-p {0}'.format(evmAcc.name), silentErrors=True)
-    prodNode.waitForTransBlockIfNeeded(trans[1], True);
-    time.sleep(2)
-
-    # Transfer funds to trigger version change
-    nonProdNode.transferFunds(cluster.eosioAccount, evmAcc, "111.0000 EOS", "0xB106D2C286183FFC3D1F0C4A6f0753bB20B407c2", waitForTransBlock=True)
-    time.sleep(2)
-
-    # # update gas parameter 
-    Utils.Print("Update gas parameter: ram price = 100 EOS per MB, gas price = 300Gwei")
-    trans = prodNode.pushMessage(evmAcc.name, "updtgasparam", json.dumps({"ram_price_mb":"100.0000 EOS","gas_price":300000000000}), '-p {0}'.format(evmAcc.name), silentErrors=False)
-    prodNode.waitForTransBlockIfNeeded(trans[1], True);
-    time.sleep(2)
-
-    Utils.Print("Transfer funds to trigger config change event on contract")
-    # Transfer funds (now using version=1)
-    nonProdNode.transferFunds(cluster.eosioAccount, evmAcc, "112.0000 EOS", "0xB106D2C286183FFC3D1F0C4A6f0753bB20B407c2", waitForTransBlock=True)
-    time.sleep(2)
-
     Utils.Print("start Flask server to separate read/write requests")
     flaskProcessPopen=subprocess.Popen(["python3", flaskProxyRoot + "/flask_proxy.py"])
-    time.sleep(2.0)
+    time.sleep(1.0)
+
+    # Validate all balances are the same on both sides
+    validate_all_balances()
 
     Utils.Print("test brownie connection")
     brownie.network.connect('localhost5000')
@@ -591,7 +588,7 @@ try:
         estimated_gas = w3.eth.estimate_gas(estimate_tx)
         Utils.Print("estimated gas of transfer to new addr:" + str(estimated_gas))
         receipt = brownie.accounts[0].transfer(brownie.accounts[1], amount, gas_price=gasP)
-        time.sleep(2)
+        time.sleep(1.5)
         assert receipt.gas_used == expected_gas_used, "expected gas used is " + str(expected_gas_used)
         assert estimated_gas >= receipt.gas_used
         assert estimated_gas < int(expected_gas_used * 1.5) # allow up to 50% more
@@ -599,6 +596,32 @@ try:
             Utils.Print("brownie.accounts[{0}] {1} balance: {2}".format(i, brownie.accounts[i].address, brownie.accounts[i].balance()))
         assert brownie.accounts[0].balance() == acct0_bal - amount - receipt.gas_used * 300 * 1000000000, "incorrect brownie.accounts[0].balance()"
         assert brownie.accounts[1].balance() == acct1_bal + amount, "incorrect brownie.accounts[1].balance()"
+
+    # transfer EOS from existing EVM address to reserved address
+    acct0_bal = brownie.accounts[0].balance()
+    amount = 300000000
+    expected_gas_used = 21000
+    estimate_tx = {
+        'from': brownie.accounts[0].address,
+        'to': w3.to_checksum_address("0xbbbbbbbbbbbbbbbbbbbbbbbb5530ea0000000000"), #eosio
+        'gas': 1000000,
+        'gasPrice': gasP,
+        'nonce': brownie.accounts[1].nonce,
+        'chainId': brownie.chain.id,
+        'data': '',
+        'value': amount
+    }
+    estimated_gas = w3.eth.estimate_gas(estimate_tx)
+    Utils.Print("EVM->reserved addr, estimated gas:" + str(estimated_gas))
+    receipt = brownie.accounts[0].transfer(brownie.accounts[1], amount, gas_price=gasP)
+    time.sleep(1.5)
+    Utils.Print("EVM->reserved addr, gas used: " + str(receipt.gas_used))
+    assert receipt.gas_used == expected_gas_used, "expected gas used is " + str(expected_gas_used)
+    assert estimated_gas >= receipt.gas_used
+    assert estimated_gas < int(expected_gas_used * 1.5) # allow up to 50% more
+    for i in range(0, len(brownie.accounts)):
+        Utils.Print("brownie.accounts[{0}] {1} balance: {2}".format(i, brownie.accounts[i].address, brownie.accounts[i].balance()))
+    assert brownie.accounts[0].balance() == acct0_bal - amount - receipt.gas_used * 300 * 1000000000, "incorrect brownie.accounts[0].balance()"
 
     validate_all_balances()
 
