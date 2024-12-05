@@ -363,7 +363,7 @@ try:
     cmd="set account permission eosio.evm active --add-code -p eosio.evm@active"
     prodNode.processCleosCmd(cmd, cmd, silentErrors=True, returnType=ReturnType.raw)
 
-    trans = prodNode.pushMessage(evmAcc.name, "init", '{{"chainid":15555, "fee_params": {{"gas_price": "10000000000", "miner_cut": 10000, "ingress_bridge_fee": "0.0000 {0}"}}}}'.format(CORE_SYMBOL), '-p eosio.evm')
+    trans = prodNode.pushMessage(evmAcc.name, "init", '{{"chainid":15555, "fee_params": {{"gas_price": "300000000000", "miner_cut": 10000, "ingress_bridge_fee": "0.0000 {0}"}}}}'.format(CORE_SYMBOL), '-p eosio.evm')
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
     transId=prodNode.getTransId(trans[1])
     blockNum = prodNode.getBlockNumByTransId(transId)
@@ -543,15 +543,15 @@ try:
     time.sleep(2)
 
     # # update gas parameter 
-    # Utils.Print("Update gas parameter: ram price = 100 EOS per MB, gas price = 900Gwei")
-    # trans = prodNode.pushMessage(evmAcc.name, "updtgasparam", json.dumps({"ram_price_mb":"100.0000 EOS","gas_price":900000000000}), '-p {0}'.format(evmAcc.name), silentErrors=False)
-    # prodNode.waitForTransBlockIfNeeded(trans[1], True);
-    # time.sleep(2)
+    Utils.Print("Update gas parameter: ram price = 100 EOS per MB, gas price = 300Gwei")
+    trans = prodNode.pushMessage(evmAcc.name, "updtgasparam", json.dumps({"ram_price_mb":"100.0000 EOS","gas_price":300000000000}), '-p {0}'.format(evmAcc.name), silentErrors=False)
+    prodNode.waitForTransBlockIfNeeded(trans[1], True);
+    time.sleep(2)
 
-    # Utils.Print("Transfer funds to trigger config change event on contract")
-    # # Transfer funds (now using version=1)
-    # nonProdNode.transferFunds(cluster.eosioAccount, evmAcc, "112.0000 EOS", "0xB106D2C286183FFC3D1F0C4A6f0753bB20B407c2", waitForTransBlock=True)
-    # time.sleep(2)
+    Utils.Print("Transfer funds to trigger config change event on contract")
+    # Transfer funds (now using version=1)
+    nonProdNode.transferFunds(cluster.eosioAccount, evmAcc, "112.0000 EOS", "0xB106D2C286183FFC3D1F0C4A6f0753bB20B407c2", waitForTransBlock=True)
+    time.sleep(2)
 
     Utils.Print("start Flask server to separate read/write requests")
     flaskProcessPopen=subprocess.Popen(["python3", flaskProxyRoot + "/flask_proxy.py"])
@@ -560,21 +560,47 @@ try:
     Utils.Print("test brownie connection")
     brownie.network.connect('localhost5000')
     brownie.accounts.add("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
-    brownie.accounts.add("a3f1b69da92a0233ce29485d3049a4ace39e8d384bbc2557e3fc60940ce4e954")
+    brownie.accounts.add("a3f1b69da92a0233ce29485d3049a4ace39e8d384bbc2557e3fc60940ce4e954") # account not exist
     Utils.Print("chain id is:" + str(brownie.chain.id))
     Utils.Print("number of blocks:" + str(len(brownie.chain)))
 
     for i in range(0, len(brownie.accounts)):
-        Utils.Print("brownie.accounts[{0}] balance: {1}".format(i, brownie.accounts[i].balance()))
+        Utils.Print("brownie.accounts[{0}] {1} balance: {2}".format(i, brownie.accounts[i].address, brownie.accounts[i].balance()))
 
-    brownie.accounts[0].transfer(brownie.accounts[1], 100000000, gas_price=gasP)
-    time.sleep(2)
+    assert brownie.accounts[1].balance() == 0, "incorrect brownie.accounts[i].balance()"
 
-    Utils.Print("after transfer via brownie")
-    for i in range(0, len(brownie.accounts)):
-        Utils.Print("brownie.accounts[{0}] balance: {1}".format(i, brownie.accounts[i].balance()))
+    # transfer EOS from existing EVM address to new EVM address & existing EVM address
+    for k in range(0,2):
+        acct0_bal = brownie.accounts[0].balance()
+        acct1_bal = brownie.accounts[1].balance()
+        amount = 100000000 * (k + 1)
+        if k == 0:
+            expected_gas_used = 131346
+        else:
+            expected_gas_used = 21000
+        estimate_tx = {
+            'from': brownie.accounts[0].address,
+            'to': brownie.accounts[1].address,
+            'gas': 1000000,
+            'gasPrice': gasP,
+            'nonce': brownie.accounts[1].nonce,
+            'chainId': brownie.chain.id,
+            'data': '',
+            'value': amount
+        }
+        estimated_gas = w3.eth.estimate_gas(estimate_tx)
+        Utils.Print("estimated gas of transfer to new addr:" + str(estimated_gas))
+        receipt = brownie.accounts[0].transfer(brownie.accounts[1], amount, gas_price=gasP)
+        time.sleep(2)
+        assert receipt.gas_used == expected_gas_used, "expected gas used is " + str(expected_gas_used)
+        assert estimated_gas >= receipt.gas_used
+        assert estimated_gas < int(expected_gas_used * 1.5) # allow up to 50% more
+        for i in range(0, len(brownie.accounts)):
+            Utils.Print("brownie.accounts[{0}] {1} balance: {2}".format(i, brownie.accounts[i].address, brownie.accounts[i].balance()))
+        assert brownie.accounts[0].balance() == acct0_bal - amount - receipt.gas_used * 300 * 1000000000, "incorrect brownie.accounts[0].balance()"
+        assert brownie.accounts[1].balance() == acct1_bal + amount, "incorrect brownie.accounts[1].balance()"
 
-    assert brownie.accounts[i].balance() == 100000000, "incorrect brownie.accounts[i].balance()"
+    validate_all_balances()
 
     Utils.Print("test success, ready to shut down cluster")
     testSuccessful = True
