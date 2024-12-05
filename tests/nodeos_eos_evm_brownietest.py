@@ -419,6 +419,7 @@ try:
         Utils.Print("Launching: %s" % cmd)
         cmdArr=shlex.split(cmd)
         eosEvmMinerPOpen=subprocess.Popen(cmdArr, cwd=useMiner)
+        time.sleep(10.0) # wait for miner's gasprice updated
     else:
         assert False, "useMiner must be set"
 
