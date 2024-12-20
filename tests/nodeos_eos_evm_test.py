@@ -1224,6 +1224,8 @@ try:
     prodNode.waitForTransBlockIfNeeded(trans[1], True);
     time.sleep(2)
 
+    validate_all_balances()
+
     Print("Test eth_getLogs (call deposit)")
     special_nonce += 1
     signed_trx = w3.eth.account.sign_transaction(dict(
@@ -1250,8 +1252,78 @@ try:
     assert(len(logs) == 1)
     assert(str(logs[0]['address']).lower() == str(eventor_contract).lower())
 
+    validate_all_balances()
+
     ####### END Test eth_getLogs
 
+    # Switch to version 3, test overhead_price & storage_price 
+    Utils.Print("Switch to evm_version 3, test overhead_price & storage_price")
+    actData = {"version":3}
+    trans = prodNode.pushMessage(evmAcc.name, "setversion", json.dumps(actData), '-p {0}'.format(evmAcc.name), silentErrors=True)
+    prodNode.waitForTransBlockIfNeeded(trans[1], True);
+    time.sleep(2)
+
+    for j in range(0,2):
+        if j == 0:
+            overhead_price = 91000000000
+            storage_price = 920000000000
+            pass_price = storage_price
+        else:
+            overhead_price = 940000000000
+            storage_price = 930000000000
+            pass_price = overhead_price
+        Utils.Print("Set gas prices: overhead_price:{0}, storage_price:{1}".format(overhead_price, storage_price))
+        actData = {"prices":{"overhead_price":overhead_price,"storage_price":storage_price}}
+        trans = prodNode.pushMessage(evmAcc.name, "setgasprices", json.dumps(actData), '-p {0}'.format(evmAcc.name), silentErrors=True)
+        prodNode.waitForTransBlockIfNeeded(trans[1], True);
+
+        # Wait 3 mins
+        Utils.Print("Wait 3 mins to ensure new gas prices become effective")
+        time.sleep(185)
+
+        for i in range(0,6): # or break if shouldFailed is false
+            gasP = 900000000000 + i * 10000000000
+            shouldFailed = (gasP < pass_price)
+            Utils.Print("transfering 1 EOS from 0x9E126C57330FA71556628e0aabd6B6B6783d99fA to 0x9E126C57330FA71556628e0aabd6B6B6783d99fB, using gas price {0}, transaction should {1}".format(gasP, ("fail" if shouldFailed else "pass")))
+            evmSendKey = "ba8c9ff38e4179748925335a9891b969214b37dc3723a1754b8b849d3eea9ac0"
+            amount=1.0000
+            transferAmount="1.0000 {0}".format(CORE_SYMBOL)
+
+            bal1 = w3.eth.get_balance(Web3.to_checksum_address("0x9E126C57330FA71556628e0aabd6B6B6783d99fA"))
+            row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
+            assert bal1 == int(row4['balance'],16), f"balance mismatch {bal2}(evm) != {int(row4['balance'],16)}(native)"
+            Utils.Print("initial balance of 0x9E126C57330FA71556628e0aabd6B6B6783d99fA is {0}".format(bal1))
+
+            nonce = nonce + 1
+            signed_trx = w3.eth.account.sign_transaction(dict(
+                nonce=nonce,
+                gas=21000,
+                maxFeePerGas = gasP,
+                maxPriorityFeePerGas = gasP,
+                to=Web3.to_checksum_address("0x9E126C57330FA71556628e0aabd6B6B6783d99fB"),
+                value=int(amount*10000*szabo*100), # .0001 EOS is 100 szabos
+                data=b'',
+                chainId=evmChainId
+            ), evmSendKey)
+            #Print("EVM transaction hash is: %s" % (Web3.to_hex(signed_trx.hash)))
+            actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
+            trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=shouldFailed)
+            
+            #Utils.Print("trans is: {}".format(json.dumps(trans)))
+            if shouldFailed:
+                assert not trans[0], f"push trx with gas = {gasP} should have failed: {trans}"
+                nonce = nonce - 1
+            else:
+                prodNode.waitForTransBlockIfNeeded(trans[1], True)
+                time.sleep(2.0) # wait for evm node sync up as well
+                row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
+                Utils.Print("\tverify balance from evm-rpc, account row4: ", row4)
+                bal2 = w3.eth.get_balance(Web3.to_checksum_address("0x9E126C57330FA71556628e0aabd6B6B6783d99fA"))
+                # balance different = 1.0 EOS (val) + 900(Gwei) (21000(base gas) + 36782 or 0)
+                assert(bal1 == bal2 + 1000000000000000000 + gasP * 21000)
+                assert bal2 == int(row4['balance'],16), f"balance mismatch {bal2}(evm) != {int(row4['balance'],16)}(native)"
+                break
+    
     Utils.Print("checking %s for errors" % (nodeStdErrDir))
     foundErr = False
     stdErrFile = open(nodeStdErrDir, "r")
