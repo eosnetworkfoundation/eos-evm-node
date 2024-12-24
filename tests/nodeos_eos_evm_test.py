@@ -1275,11 +1275,21 @@ try:
         Utils.Print("Set gas prices: overhead_price:{0}, storage_price:{1}".format(overhead_price, storage_price))
         actData = {"prices":{"overhead_price":overhead_price,"storage_price":storage_price}}
         trans = prodNode.pushMessage(evmAcc.name, "setgasprices", json.dumps(actData), '-p {0}'.format(evmAcc.name), silentErrors=True)
-        prodNode.waitForTransBlockIfNeeded(trans[1], True);
+        prodNode.waitForTransBlockIfNeeded(trans[1], True)
 
         # Wait 3 mins
         Utils.Print("Wait 3 mins to ensure new gas prices become effective")
         time.sleep(185)
+
+        # ensure EOS->EVM bridge still works
+        Utils.Print("ensure EOS->EVM bridge still works with overhead_price & storage_price")
+        nonProdNode.transferFunds(cluster.eosioAccount, evmAcc, "1.0000 EOS", "0xB106D2C286183FFC3D1F0C4A6f0753bB20B407c2", waitForTransBlock=True)
+
+        # ensure call action (special signature) still works
+        Utils.Print("ensure call action (special signature) still works with overhead_price & storage_price")
+        actData = {"from":minerAcc.name, "to":increment_contract[2:], "value":"0000000000000000000000000000000000000000000000000000000000000000", "data":"d09de08a", "gas_limit":"100000"}
+        trans = prodNode.pushMessage(evmAcc.name, "call", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=False)
+        prodNode.waitForTransBlockIfNeeded(trans[1], True)
 
         for i in range(0,6): # or break if shouldFailed is false
             gasP = 900000000000 + i * 10000000000
@@ -1321,7 +1331,7 @@ try:
                 bal2 = w3.eth.get_balance(Web3.to_checksum_address("0x9E126C57330FA71556628e0aabd6B6B6783d99fA"))
                 # balance different = 1.0 EOS (val) + 900(Gwei) (21000(base gas) + 36782 or 0)
                 assert(bal1 == bal2 + 1000000000000000000 + gasP * 21000)
-                assert bal2 == int(row4['balance'],16), f"balance mismatch {bal2}(evm) != {int(row4['balance'],16)}(native)"
+                assert bal2 == int(row4['balance'],16), f"balance mismatch in account 0x9E126C57330FA71556628e0aabd6B6B6783d99fA: {bal2}(evm) != {int(row4['balance'],16)}(native)"
                 break
     
     Utils.Print("checking %s for errors" % (nodeStdErrDir))
