@@ -78,7 +78,7 @@ if empty(method) or empty(version) then
       return
     end
     if write_calls ~= nil then                               
-      if contains(write_calls, v['method']) then                  
+      if contains(write_calls, v['method']) and v['method'] ~= 'eth_gasPrice' then
         ngx.log(ngx.ERR, 'batch write calls not allowed') 
         ngx.exit(ngx.HTTP_BAD_REQUEST)     
         return   
