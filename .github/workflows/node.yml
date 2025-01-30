@@ -425,7 +425,7 @@ jobs:
           tar -czf sprint-int-test-logs.tar.gz test_run_root/* ws_test_run_root/*
 
       - name: Upload logs from failed tests
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: spring-int-test-logs.tar.gz
