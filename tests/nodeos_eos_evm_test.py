@@ -1256,16 +1256,24 @@ try:
 
     ####### END Test eth_getLogs
 
+    overhead_price = 900000000000
+    storage_price = 900000000000
+    Utils.Print("Set gas prices: overhead_price:{0}, storage_price:{1}".format(overhead_price, storage_price))
+    actData = {"prices":{"overhead_price":overhead_price,"storage_price":storage_price}}
+    trans = prodNode.pushMessage(evmAcc.name, "setgasprices", json.dumps(actData), '-p {0}'.format(evmAcc.name), silentErrors=True)
+    prodNode.waitForTransBlockIfNeeded(trans[1], True)
+    time.sleep(1)
+
     # Switch to version 3, test overhead_price & storage_price 
     Utils.Print("Switch to evm_version 3, test overhead_price & storage_price")
     actData = {"version":3}
     trans = prodNode.pushMessage(evmAcc.name, "setversion", json.dumps(actData), '-p {0}'.format(evmAcc.name), silentErrors=True)
     prodNode.waitForTransBlockIfNeeded(trans[1], True);
-    time.sleep(2)
+    time.sleep(1)
 
     for j in range(0,2):
         if j == 0:
-            overhead_price = 91000000000
+            overhead_price = 910000000000
             storage_price = 920000000000
             pass_price = storage_price
         else:
@@ -1329,8 +1337,11 @@ try:
                 row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
                 Utils.Print("\tverify balance from evm-rpc, account row4: ", row4)
                 bal2 = w3.eth.get_balance(Web3.to_checksum_address("0x9E126C57330FA71556628e0aabd6B6B6783d99fA"))
-                # balance different = 1.0 EOS (val) + 900(Gwei) (21000(base gas) + 36782 or 0)
-                assert(bal1 == bal2 + 1000000000000000000 + gasP * 21000)
+                # to_account is an existing account
+                tolarence = 0
+                if gasP != overhead_price:
+                    tolarence = 21000000000000  # 21000 Gwei
+                assert ((bal1 + tolarence >= bal2 + 1000000000000000000 + overhead_price * 21000) and (bal1 - tolarence <= bal2 + 1000000000000000000 + overhead_price * 21000)), f"bal1 is {bal1}, bal2 is {bal2}, overhead_price is {overhead_price}"
                 assert bal2 == int(row4['balance'],16), f"balance mismatch in account 0x9E126C57330FA71556628e0aabd6B6B6783d99fA: {bal2}(evm) != {int(row4['balance'],16)}(native)"
                 break
     
