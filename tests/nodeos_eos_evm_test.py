@@ -905,7 +905,6 @@ try:
     assert(row4["eth_address"] == "9e126c57330fa71556628e0aabd6b6b6783d99fa")
     assert(row4["balance"] == "0000000000000000000000000000000000000000000000013539c783bbf0c000")
 
-
     # Launch eos-evm-node
     Utils.Print("===== laucnhing eos-evm-node & eos-evm-rpc =====")
     dataDir = Utils.DataDir + "eos_evm"
@@ -1120,6 +1119,7 @@ try:
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
     row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
     Utils.Print("\tverify balance from evm-rpc, account row4: ", row4)
+    time.sleep(3)
     bal2 = w3.eth.get_balance(Web3.to_checksum_address("0x9E126C57330FA71556628e0aabd6B6B6783d99fA"))
 
     # balance different = 1.0 EOS (val) + 900(Gwei) (21000(base gas))
@@ -1179,6 +1179,7 @@ try:
         prodNode.waitForTransBlockIfNeeded(trans[1], True)
         row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
         Utils.Print("\tverify balance from evm-rpc, account row4: ", row4)
+        time.sleep(3)
         bal2 = w3.eth.get_balance(Web3.to_checksum_address("0x9E126C57330FA71556628e0aabd6B6B6783d99fA"))
 
         # balance different = 1.0 EOS (val) + 900(Gwei) (21000(base gas) + 36782 or 0)
@@ -1196,7 +1197,7 @@ try:
         tx_dict = toDict(evm_tx)
         Utils.Print("evm transaction receipt is %s" % (json.dumps(tx_dict)))
         assert(prefix_0x(str(tx_dict["transactionHash"])) == str(Web3.to_hex(signed_trx.hash)))
-
+        time.sleep(3)
         if i == 0:
             validate_all_balances() # validate balances between native & EVM
 
