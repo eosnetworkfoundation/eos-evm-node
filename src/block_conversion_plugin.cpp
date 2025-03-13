@@ -314,6 +314,20 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                      auto dtx = deserialize_tx(act);
                      auto& rlpx_ref = std::visit([](auto&& arg) -> auto& { return arg.rlpx; }, dtx);
 
+                     auto tx_version = std::visit([](auto&& arg) -> auto { return arg.eos_evm_version; }, dtx);
+                     if (tx_version < block_version) {
+                        SILK_CRIT << "tx_version < block_version";
+                        throw std::runtime_error("tx_version < block_version");
+                     } else if (tx_version > block_version) {
+                        if(curr.transactions.empty()) {
+                           curr.header.nonce = eosevm::version_to_nonce(tx_version);
+                           block_version = tx_version;
+                        } else {
+                           SILK_CRIT << "tx_version > block_version";
+                           throw std::runtime_error("tx_version > block_version");
+                        }
+                     }
+
                      if(block_version >= 3) {
                         SILKWORM_ASSERT(std::holds_alternative<evmtx_v3>(dtx));
                         const auto& dtx_v3 = std::get<evmtx_v3>(dtx);
@@ -347,20 +361,6 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                      if (!silkworm::rlp::decode_transaction(bv, evm_tx, silkworm::rlp::Eip2718Wrapping::kBoth, silkworm::rlp::Leftover::kProhibit)) {
                         SILK_CRIT << "Failed to decode transaction in block: " << curr.header.number;
                         throw std::runtime_error("Failed to decode transaction");
-                     }
-                     auto tx_version = std::visit([](auto&& arg) -> auto { return arg.eos_evm_version; }, dtx);
-
-                     if(tx_version < block_version) {
-                        SILK_CRIT << "tx_version < block_version";
-                        throw std::runtime_error("tx_version < block_version");
-                     } else if (tx_version > block_version) {
-                        if(curr.transactions.empty()) {
-                           curr.header.nonce = eosevm::version_to_nonce(tx_version);
-                           block_version = tx_version;
-                        } else {
-                           SILK_CRIT << "tx_version > block_version";
-                           throw std::runtime_error("tx_version > block_version");
-                        }
                      }
 
                      if(block_version >= 1 && block_version < 3) {

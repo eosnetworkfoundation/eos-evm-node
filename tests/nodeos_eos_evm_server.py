@@ -470,7 +470,14 @@ try:
                 }
 
             if req['method'] == "eth_gasPrice":
-                gas_price=int(prodNode1.getTable(evmAcc.name, evmAcc.name, "config")['rows'][0]['gas_price'])
+                config = prodNode1.getTable(evmAcc.name, evmAcc.name, "config")['rows'][0]
+                print(config)
+                if int(config['evm_version']['cached_value']) < 3:
+                    print("version < 3")
+                    gas_price = int(config['gas_price'])
+                else:
+                    print("version >= 3")
+                    gas_price = max(int(config['gas_prices']['overhead_price']), int(config['gas_prices']['storage_price']))
                 return {
                     "id": req['id'],
                     "jsonrpc": "2.0",
