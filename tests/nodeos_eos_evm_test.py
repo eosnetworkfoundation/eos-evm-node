@@ -10,6 +10,7 @@ import subprocess
 import sys
 import time
 import calendar
+import secrets
 from datetime import datetime
 from ctypes import c_uint8
 
@@ -19,7 +20,7 @@ import urllib.error
 
 import sys
 from binascii import unhexlify
-from web3 import Web3
+from web3 import Web3, Account
 import rlp
 
 sys.path.append(os.path.join(os.getcwd(), "tests"))
@@ -109,15 +110,8 @@ eosEvmMinerPOpen = None
 
 def assert_contract_exist(contract_addr):
     Utils.Print("ensure contract {0} exist".format(contract_addr))
-    if contract_addr[:2] == '0x':
-        contract_addr = contract_addr[2:]
-    rows=prodNode.getTable(evmAcc.name, evmAcc.name, "account")
-    for row in rows['rows']:
-        if (str(contract_addr) == str(row['eth_address'])):
-            assert row['code_id'] is not None, "contract {0} should exist".format(contract_addr)
-            return True
-    Utils.Print("evm account table rows: " + json.dumps(rows))
-    assert False, "contract {0} should exist".format(contract_addr)
+    c = get_sigle_account_from_table(contract_addr)
+    assert c is not None, "contract {0} should exist".format(contract_addr)
 
 def interact_with_storage_contract(dest, nonce):
     for i in range(1, 5): # execute a few
@@ -302,6 +296,73 @@ try:
 
     prodNode = cluster.getNode(0)
     nonProdNode = cluster.getNode(1)
+
+    def create_and_fund_account(v=5):
+        priv = secrets.token_hex(32)
+        acct = Account.from_key('0x'+priv)
+        transferAmount="{0}.0000 {1}".format(v, CORE_SYMBOL)
+        Print("CREATE ACCOUNT: Transfer funds %s to %s" % (transferAmount, acct.address))
+        nonProdNode.transferFunds(cluster.eosioAccount, evmAcc, transferAmount, acct.address.lower(), waitForTransBlock=True)
+        acct.nonce = 0
+        return acct
+
+    def deploy_contract(acct, bytecode, chain_id):
+        trx = w3.eth.account.sign_transaction(dict(
+            nonce    = acct.nonce,
+            gas      = 1000000,
+            gasPrice = 900000000000,
+            data     = Web3.to_bytes(hexstr=bytecode),
+            chainId  = chain_id
+        ), acct.key)
+        actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(trx))[2:]}
+        retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
+        assert retValue[0], f"push trx should have succeeded: {retValue}"
+        contract_address = makeContractAddress(acct.address, acct.nonce)
+        time.sleep(2)
+        get_sigle_account_from_table(contract_address)
+        acct.nonce += 1
+        return contract_address
+
+    def get_sigle_account_from_table(address):
+        if address.startswith("0x"): address = address[2:]
+        r = processUrllibRequest("http://127.0.0.1:8888/v1/chain/get_table_rows", {
+            "json": True,
+            "code": evmAcc.name,
+            "scope": evmAcc.name,
+            "table": "account",
+            "lower_bound": address,
+            "upper_bound": "",
+            "limit": 1,
+            "key_type": "sha256",
+            "index_position": "2",
+        })
+        if r is not None and 'payload' in r and 'rows' in r['payload'] and len(r['payload']['rows']) > 0 and r['payload']['rows'][0]['eth_address'].lower() == address.lower():
+            return r['payload']['rows'][0]
+        return None
+
+    def get_full_table(table_name):
+        res = []
+        next_key=0
+        while True:
+            r = processUrllibRequest("http://127.0.0.1:8888/v1/chain/get_table_rows", {
+                "json": True,
+                "code": evmAcc.name,
+                "scope": evmAcc.name,
+                "table": table_name,
+                "lower_bound": next_key,
+                "limit": 100,
+            })
+            if r is not None and r.get('code') == 200:
+                new_rows = r['payload']['rows']
+                res.extend(new_rows)
+                if r['payload']['more'] == True:
+                    next_key = r['payload']['next_key']
+                else:
+                    break
+            else:
+                break
+        Utils.Print("get_full_table ({0}): {1}".format(table_name, len(res)))
+        return res
 
     accounts=createAccountKeys(7)
     if accounts is None:
@@ -551,8 +612,9 @@ try:
     actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
     retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     assert retValue[0], f"push trx should have succeeded: {retValue}"
-    assert_contract_exist(makeContractAddress(fromAdd, nonce))
-    nonce = interact_with_storage_contract(makeContractAddress(fromAdd, nonce), nonce)
+    storage_contract = makeContractAddress(fromAdd, nonce)
+    assert_contract_exist(storage_contract)
+    nonce = interact_with_storage_contract(storage_contract, nonce)
 
     if genesisJson[0] != '/': genesisJson = os.path.realpath(genesisJson)
     f=open(genesisJson,"w")
@@ -843,7 +905,6 @@ try:
     assert(row4["eth_address"] == "9e126c57330fa71556628e0aabd6b6b6783d99fa")
     assert(row4["balance"] == "0000000000000000000000000000000000000000000000013539c783bbf0c000")
 
-
     # Launch eos-evm-node
     Utils.Print("===== laucnhing eos-evm-node & eos-evm-rpc =====")
     dataDir = Utils.DataDir + "eos_evm"
@@ -853,7 +914,7 @@ try:
     os.makedirs(dataDir)
     outFile = open(nodeStdOutDir, "w")
     errFile = open(nodeStdErrDir, "w")
-    cmd = f"{eosEvmBuildRoot}/bin/eos-evm-node --plugin=blockchain_plugin --ship-core-account=eosio.evm --ship-endpoint=127.0.0.1:8999 --genesis-json={genesisJson} --verbosity=5 --nocolor=1 --chain-data={dataDir}"
+    cmd = f"{eosEvmBuildRoot}/bin/eos-evm-node --plugin=blockchain_plugin --ship-core-account=eosio.evm --ship-endpoint=127.0.0.1:8999 --genesis-json={genesisJson} --verbosity=10 --nocolor=1 --chain-data={dataDir}"
     Utils.Print(f"Launching: {cmd}")
     cmdArr=shlex.split(cmd)
     evmNodePOpen=Utils.delayedCheckOutput(cmdArr, stdout=outFile, stderr=errFile)
@@ -870,9 +931,12 @@ try:
     cmdArr=shlex.split(cmd)
     evmRPCPOpen=Utils.delayedCheckOutput(cmdArr, stdout=outFile, stderr=errFile)
 
+    time.sleep(3)
+
     def validate_all_balances():
-        rows=prodNode.getTable(evmAcc.name, evmAcc.name, "account")
-        for row in rows['rows']:
+        #rows=prodNode.getTable(evmAcc.name, evmAcc.name, "account")
+        rows=get_full_table("account")
+        for row in rows:
             Utils.Print("Checking 0x{0} balance".format(row['eth_address']))
             r = -1
             try:
@@ -1055,6 +1119,7 @@ try:
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
     row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
     Utils.Print("\tverify balance from evm-rpc, account row4: ", row4)
+    time.sleep(3)
     bal2 = w3.eth.get_balance(Web3.to_checksum_address("0x9E126C57330FA71556628e0aabd6B6B6783d99fA"))
 
     # balance different = 1.0 EOS (val) + 900(Gwei) (21000(base gas))
@@ -1114,9 +1179,11 @@ try:
         prodNode.waitForTransBlockIfNeeded(trans[1], True)
         row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
         Utils.Print("\tverify balance from evm-rpc, account row4: ", row4)
+        time.sleep(3)
         bal2 = w3.eth.get_balance(Web3.to_checksum_address("0x9E126C57330FA71556628e0aabd6B6B6783d99fA"))
 
         # balance different = 1.0 EOS (val) + 900(Gwei) (21000(base gas) + 36782 or 0)
+        Utils.Print("BAL1: {0}, BAL2:{1}".format(bal1, bal2 + 1000000000000000000 + 900000000000 * (21000 + (1 - i) * 36782)))
         assert(bal1 == bal2 + 1000000000000000000 + 900000000000 * (21000 + (1 - i) * 36782))
 
         Utils.Print("try to get transaction %s from evm-rpc" % (Web3.to_hex(signed_trx.hash)))
@@ -1130,7 +1197,7 @@ try:
         tx_dict = toDict(evm_tx)
         Utils.Print("evm transaction receipt is %s" % (json.dumps(tx_dict)))
         assert(prefix_0x(str(tx_dict["transactionHash"])) == str(Web3.to_hex(signed_trx.hash)))
-
+        time.sleep(3)
         if i == 0:
             validate_all_balances() # validate balances between native & EVM
 
@@ -1265,13 +1332,65 @@ try:
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
     time.sleep(1)
 
-    # Switch to version 3, test overhead_price & storage_price 
-    Utils.Print("Switch to evm_version 3, test overhead_price & storage_price")
+    # Switch to version 3
+    Utils.Print("Switch to evm_version 3")
     actData = {"version":3}
     trans = prodNode.pushMessage(evmAcc.name, "setversion", json.dumps(actData), '-p {0}'.format(evmAcc.name), silentErrors=True)
     prodNode.waitForTransBlockIfNeeded(trans[1], True);
     time.sleep(1)
 
+    # Trigger version change
+    nonProdNode.transferFunds(cluster.eosioAccount, evmAcc, "1.0000 EOS", "0xB106D2C286183FFC3D1F0C4A6f0753bB20B407c2", waitForTransBlock=True)
+    time.sleep(1)
+
+    # Test worst case gas estimation
+    Utils.Print("Test worst case gas estimation (failure)")
+    test_acct = create_and_fund_account()
+
+    # Deploy storage contract
+    contract_address = deploy_contract(test_acct, '608060405234801561001057600080fd5b50610150806100206000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c80632e64cec11461003b5780636057361d14610059575b600080fd5b610043610075565b60405161005091906100a1565b60405180910390f35b610073600480360381019061006e91906100ed565b61007e565b005b60008054905090565b8060008190555050565b6000819050919050565b61009b81610088565b82525050565b60006020820190506100b66000830184610092565b92915050565b600080fd5b6100ca81610088565b81146100d557600080fd5b50565b6000813590506100e7816100c1565b92915050565b600060208284031215610103576101026100bc565b5b6000610111848285016100d8565b9150509291505056fea2646970667358fe12209ffe32fe5779018f7ee58886c856a4cfdf550f2df32cec944f57716a3abf4a5964736f6c63430008110033', evmChainId)
+
+    last_block = get_block("latest")
+
+    # Ask for conservative gas estimation (gas=0), but specify gasPrice that makes inclusion price > 0
+    estimate_tx = {
+        'from'                : Web3.to_checksum_address(test_acct.address),
+        'gas'                 : 0,
+        'gasPrice'            : int(last_block["baseFeePerGas"], 16) + 1,
+        'to'                  : Web3.to_checksum_address(contract_address),
+        'data'                : "6057361d0000000000000000000000000000000000000000000000000000000000000001",
+        'chainId'             : evmChainId
+    }
+    try:
+        w3.eth.estimate_gas(estimate_tx)
+        assert(False)
+    except Exception as e:
+        assert(e.message == "{'code': -32000, 'message': 'inclusion_price must be 0'}")
+
+    # Ask for conservative gas estimation (with inclusion price=0)
+    estimate_tx = {
+        'from'                : Web3.to_checksum_address(test_acct.address),
+        'gas'                 : 0,
+        'to'                  : Web3.to_checksum_address(contract_address),
+        'data'                : "6057361d0000000000000000000000000000000000000000000000000000000000000001",
+        'chainId'             : evmChainId
+    }
+    assert(w3.eth.estimate_gas(estimate_tx) == 66200)
+
+    # Ask for regular gas estimation (using discount factor < 1)
+    estimate_tx = {
+        'from'                : Web3.to_checksum_address(test_acct.address),
+        'gasPrice'            : int(last_block["baseFeePerGas"], 16)*2,
+        'to'                  : Web3.to_checksum_address(contract_address),
+        'data'                : "6057361d0000000000000000000000000000000000000000000000000000000000000001",
+        'chainId'             : evmChainId
+    }
+    assert(w3.eth.estimate_gas(estimate_tx) == 46412)
+
+    Utils.Print("Test worst case gas estimation (ok)")
+
+    # test overhead_price & storage_price
+    Utils.Print("Test overhead_price & storage_price")
     evmSendKey = "ba8c9ff38e4179748925335a9891b969214b37dc3723a1754b8b849d3eea9ac0"
     amount=1.0000
     transferAmount="1.0000 {0}".format(CORE_SYMBOL)
