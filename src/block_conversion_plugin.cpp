@@ -137,9 +137,9 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
          }
 
          // Note: can be null
-         auto gpi = last_evm_block.get_gas_prices_index();
-         if(gpi.has_value()) {
-            new_block.set_gas_prices_index(gpi);
+         auto gas_prices = last_evm_block.get_gas_prices();
+         if(gas_prices.has_value()) {
+            new_block.set_gas_prices(gas_prices.value());
          }
 
          return new_block;
@@ -331,26 +331,25 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                      if(block_version >= 3) {
                         SILKWORM_ASSERT(std::holds_alternative<evmtx_v3>(dtx));
                         const auto& dtx_v3 = std::get<evmtx_v3>(dtx);
-                        auto tx_gas_prices = eosevm::gas_prices{
+                        const auto tx_gas_prices = eosevm::gas_prices{
                            .overhead_price = dtx_v3.overhead_price,
                            .storage_price  = dtx_v3.storage_price
                         };
-                        auto tx_gas_prices_index = tx_gas_prices.hash();
-                        auto curr_block_prices_index = curr.get_gas_prices_index();
+
+                        auto curr_block_prices = curr.get_gas_prices();
 
                         auto set_new_gas_prices = [&](){
-                           curr.set_gas_prices_index(tx_gas_prices_index);
-                           silkworm::db::update_gas_prices(appbase::app().get_plugin<blockchain_plugin>().get_tx(), tx_gas_prices_index, tx_gas_prices);
+                           curr.set_gas_prices(tx_gas_prices);
                         };
 
-                        if(!curr_block_prices_index) {
+                        if(!curr_block_prices.has_value()) {
                            set_new_gas_prices();
-                        } else if(*curr_block_prices_index != tx_gas_prices_index) {
+                        } else if(*curr_block_prices != tx_gas_prices) {
                            if(curr.transactions.empty()) {
                               set_new_gas_prices();
                            } else {
-                              SILK_CRIT << "curr_block_prices_index != tx_gas_prices_index";
-                              throw std::runtime_error("curr_block_prices_index != tx_gas_prices_index");
+                              SILK_CRIT << "curr_block_prices != tx_gas_prices";
+                              throw std::runtime_error("curr_block_prices != tx_gas_prices");
                            }
                         }
 
