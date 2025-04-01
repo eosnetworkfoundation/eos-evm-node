@@ -239,7 +239,7 @@ class block_conversion_plugin_impl : std::enable_shared_from_this<block_conversi
                               auto txid_a = ethash::keccak256(rlpx_ref.data(), rlpx_ref.size());
 
                               silkworm::Bytes transaction_rlp{};
-                              silkworm::rlp::encode(transaction_rlp, evm_blocks.back().transactions.back());
+                              silkworm::rlp::encode(transaction_rlp, evm_blocks.back().transactions.back(), /* wrap_eip2718_into_string */ false);
                               auto txid_b = ethash::keccak256(transaction_rlp.data(), transaction_rlp.size());
 
                               // Ensure that the transaction to be removed is the correct one
