@@ -124,8 +124,8 @@ class engine_plugin_impl : std::enable_shared_from_this<engine_plugin_impl> {
       }
 
       inline void shutdown() {
-         eth->close();
          server->shutdown();
+         eth->close();
          SILK_INFO << "Stopped Engine Server";
       }
 
