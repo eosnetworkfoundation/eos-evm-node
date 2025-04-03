@@ -78,8 +78,8 @@ class blockchain_plugin_impl : std::enable_shared_from_this<blockchain_plugin_im
       }
 
       void shutdown() {
-         exec_engine->close();
          exec_engine->stop();
+         exec_engine->close();      
       }
 
       using txn_t = std::unique_ptr<silkworm::db::RWTxn>;

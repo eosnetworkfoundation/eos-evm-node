@@ -41,7 +41,26 @@ namespace channels {
       std::optional<native_action>  new_config = std::nullopt;
       std::vector<native_trx> transactions;
    };
+
+   // Dispatch Policy that exit on exception
+   struct exit_on_exceptions {
+      exit_on_exceptions() = default;
+      using result_type = void;
+
+      template<typename InputIterator>
+      result_type operator()(InputIterator first, InputIterator last) {
+         while (first != last) {
+            try {
+               *first;
+            } catch (...) {
+               SILK_CRIT << "Caught exception when processing channel callbacks.";
+               appbase::app().quit();
+            }
+            ++first;
+         }
+      }
+   };
    
-   using native_blocks = appbase::channel_decl<struct native_blocks_tag, std::shared_ptr<native_block>>;
-   using evm_blocks = appbase::channel_decl<struct evm_blocks_tag, std::shared_ptr<silkworm::Block>>;
+   using native_blocks = appbase::channel_decl<struct native_blocks_tag, std::shared_ptr<native_block>, exit_on_exceptions>;
+   using evm_blocks = appbase::channel_decl<struct evm_blocks_tag, std::shared_ptr<silkworm::Block>, exit_on_exceptions>;
 } // ns channels
