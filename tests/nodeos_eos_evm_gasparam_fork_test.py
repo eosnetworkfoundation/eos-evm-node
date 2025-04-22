@@ -758,7 +758,7 @@ try:
     # Verify header.nonce == 1 (evmversion=1)
     evm_block = w3.eth.get_block('latest')
     Utils.Print("before fork, the latest evm block is:" + str(evm_block))
-    assert(evm_block["nonce"].hex() == "0000000000000001")
+    assert(evm_block["nonce"].hex() == "0000000000000001" or evm_block["nonce"].hex() == "0x0000000000000001")
     assert("consensusParameter" in evm_block)
     assert(evm_block["consensusParameter"]["gasFeeParameters"]["gasCodedeposit"] == 477)
     assert(evm_block["consensusParameter"]["gasFeeParameters"]["gasNewaccount"] == 165519)
@@ -942,7 +942,7 @@ try:
     # verify eos-evm-node get the new gas parameter from the minor fork
     evm_block = w3.eth.get_block('latest')
     Utils.Print("in minor fork, the latest evm block is:" + str(evm_block))
-    assert(evm_block["nonce"].hex() == "0000000000000001")
+    assert(evm_block["nonce"].hex() == "0000000000000001" or evm_block["nonce"].hex() == "0x0000000000000001")
     assert("consensusParameter" in evm_block)
 
     assert(evm_block["consensusParameter"]["gasFeeParameters"]["gasCodedeposit"] == 573)
@@ -992,6 +992,10 @@ try:
     # if node1.verifyAlive():
     #     Utils.errorExit("Expected the node 1 to have shutdown.")
 
+    blockNum0 = prodNodes[0].getBlockNum()
+    blockNum1 = prodNodes[1].getBlockNum()
+    WaitUntilBlockNum = max(blockNum0, blockNum1) + 20
+    Print("Before relaunching the bridge node: prod[0] head_block_num %d, prod[1] head_block_num %d" % (blockNum0, blockNum1))
     Print("Relaunching the non-producing bridge node to connect the node 0 (defproducera, defproducerb)")
     if not nonProdNode.relaunch(chainArg=" --hard-replay "):
         errorExit("Failure - (non-production) node %d should have restarted" % (nonProdNode.nodeNum))
@@ -1001,7 +1005,7 @@ try:
     # if not node1.relaunch(chainArg=" --enable-stale-production "):
     #     errorExit("Failure - (non-production) node 1 should have restarted")
 
-    Print("Waiting to allow forks to resolve")
+    Print("Waiting to allow forks to resolve from block %d" % (killBlockNum))
     time.sleep(3)
 
     for prodNode in prodNodes:
@@ -1024,9 +1028,10 @@ try:
         if match:
             if checkHead:
                 forkResolved=True
-                Print("Great! fork resolved!!!")
+                Print("Great! fork resolved!!! killBlockNum %d, current head_number %d, producer %s" % (killBlockNum, checkMatchBlock, blockProducer0))
                 break
             else:
+                Print("Block %d has producer %s in both nodes, continue to check head" %(checkMatchBlock, blockProducer0))
                 checkHead=True
                 continue
         Print("Fork has not resolved yet, wait a little more. Block %s has producer %s for node_00 and %s for node_01.  Original divergence was at block %s. Wait time remaining: %d" % (checkMatchBlock, blockProducer0, blockProducer1, killBlockNum, remainingChecks))
@@ -1036,6 +1041,18 @@ try:
     assert forkResolved, "fork was not resolved in a reasonable time. node_00 lib {} head {}, node_01 lib {} head {}".format(\
         prodNodes[0].getIrreversibleBlockNum(), prodNodes[0].getHeadBlockNum(), \
         prodNodes[1].getIrreversibleBlockNum(), prodNodes[1].getHeadBlockNum())
+    
+    # wait until the current chain is longer than any minor fork happened in the past
+    # ensure the EVM oracle to switch to longer fork
+    remainingChecks = 60
+    blockNum0 = prodNodes[0].getBlockNum()
+    WaitUntilBlockNum = max(WaitUntilBlockNum, killBlockNum + 30)
+    while (blockNum0 <= WaitUntilBlockNum):
+        Print("Wait for prodnode0's block_num proceed until %d, now %d" % (WaitUntilBlockNum, blockNum0))
+        time.sleep(1)
+        remainingChecks -= 1
+        assert remainingChecks >= 0, "prodnode0 does not producer block at %d after resolving the fork" % (blockNum0)
+        blockNum0 = prodNodes[0].getBlockNum()
 
     row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) 
     Utils.Print("\taccount row4 in node0: ", row4)
@@ -1046,7 +1063,7 @@ try:
 
     evm_block = w3.eth.get_block('latest')
     Utils.Print("after fork resolved, the latest evm block is:" + str(evm_block))
-    assert(evm_block["nonce"].hex() == "0000000000000001")
+    assert(evm_block["nonce"].hex() == "0000000000000001" or evm_block["nonce"].hex() == "0x0000000000000001")
     assert("consensusParameter" in evm_block)
 
     assert(evm_block["consensusParameter"]["gasFeeParameters"]["gasCodedeposit"] == 477)
