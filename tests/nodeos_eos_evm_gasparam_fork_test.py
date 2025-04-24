@@ -320,10 +320,11 @@ try:
 
     specificExtraNodeosArgs[2]="--plugin eosio::test_control_api_plugin"
 
-    extraNodeosArgs="--contracts-console --resource-monitor-not-shutdown-on-threshold-exceeded"
+    extraNodeosArgs="--contracts-console --production-pause-vote-timeout-ms 0 --resource-monitor-not-shutdown-on-threshold-exceeded"
 
     Print("Stand up cluster")
-    if cluster.launch(prodCount=2, pnodes=2, topo="bridge", totalNodes=3, extraNodeosArgs=extraNodeosArgs, totalProducers=3, specificExtraNodeosArgs=specificExtraNodeosArgs,delay=5) is False:
+    # node 0 (defproducera, defproducerb), node 1 (defproducerc, ...)
+    if cluster.launch(prodCount=2, pnodes=2, topo="bridge", totalNodes=3, extraNodeosArgs=extraNodeosArgs, totalProducers=4, specificExtraNodeosArgs=specificExtraNodeosArgs,delay=5,activateIF=True) is False:
         errorExit("Failed to stand up eos cluster.")
 
     Print ("Wait for Cluster stabilization")
@@ -353,7 +354,7 @@ try:
             producers.extend(node.producers)
 
     node=prodNodes[0] # producers: defproducera, defproducerb
-    node1=prodNodes[1] # producers: defproducerc
+    node1=prodNodes[1] # producers: defproducerc, ...
     # node2 is the nonProdnode (the bridge node)
     prodNode = prodNodes[0]
 
@@ -823,8 +824,9 @@ try:
         Utils.errorExit("failed to catch a block produced by defproducerb")
 
     blockProducer1=node1.getBlockProducerByNum(blockNum)
-    Utils.Print("block number %d is producer by %s in node0" % (blockNum, blockProducer))
-    Utils.Print("block number %d is producer by %s in node1" % (blockNum, blockProducer1))
+    lib = info["last_irreversible_block_num"]
+    Utils.Print("before kill, block number %d is producer by %s in node0, LIB %d" % (blockNum, blockProducer, lib))
+    Utils.Print("before kill, block number %d is producer by %s in node1, LIB %d" % (blockNum, blockProducer1, lib))
 
     # ===== start to make a fork, killing the "bridge" node ====
     Print("Sending command to kill \"bridge\" node to separate the 2 producer groups.")
@@ -1032,6 +1034,7 @@ try:
                 break
             else:
                 Print("Block %d has producer %s in both nodes, continue to check head" %(checkMatchBlock, blockProducer0))
+                assert (blockProducer0 == "defproducerc" or blockProducer0 == "defproducerd"), "node0 must switch fork at %d" % (killBlockNum)
                 checkHead=True
                 continue
         Print("Fork has not resolved yet, wait a little more. Block %s has producer %s for node_00 and %s for node_01.  Original divergence was at block %s. Wait time remaining: %d" % (checkMatchBlock, blockProducer0, blockProducer1, killBlockNum, remainingChecks))
@@ -1044,15 +1047,9 @@ try:
     
     # wait until the current chain is longer than any minor fork happened in the past
     # ensure the EVM oracle to switch to longer fork
-    remainingChecks = 60
     blockNum0 = prodNodes[0].getBlockNum()
     WaitUntilBlockNum = max(WaitUntilBlockNum, killBlockNum + 30)
-    while (blockNum0 <= WaitUntilBlockNum):
-        Print("Wait for prodnode0's block_num proceed until %d, now %d" % (WaitUntilBlockNum, blockNum0))
-        time.sleep(1)
-        remainingChecks -= 1
-        assert remainingChecks >= 0, "prodnode0 does not producer block at %d after resolving the fork" % (blockNum0)
-        blockNum0 = prodNodes[0].getBlockNum()
+    prodNodes[0].waitForBlock(WaitUntilBlockNum)
 
     row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) 
     Utils.Print("\taccount row4 in node0: ", row4)
