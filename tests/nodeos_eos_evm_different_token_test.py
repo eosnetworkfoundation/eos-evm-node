@@ -269,8 +269,8 @@ try:
 
     extraNodeosArgs="--contracts-console --resource-monitor-not-shutdown-on-threshold-exceeded"
 
-    Print("Stand up cluster")
-    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, extraNodeosArgs=extraNodeosArgs, specificExtraNodeosArgs=specificExtraNodeosArgs,delay=5) is False:
+    Print("Stand up cluster with activateIF=True")
+    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, extraNodeosArgs=extraNodeosArgs, specificExtraNodeosArgs=specificExtraNodeosArgs,delay=5,activateIF=True) is False:
         errorExit("Failed to stand up eos cluster.")
 
     Print ("Wait for Cluster stabilization")
@@ -981,9 +981,10 @@ try:
     trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=False)
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
     row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) # 4th balance of this integration test
-    Utils.Print("\taccount row4: ", row4)
+    Utils.Print("account row4: ", row4)
+    time.sleep(2) #wait for evm node to process the block
     bal2 = w3.eth.get_balance(Web3.to_checksum_address("0x9E126C57330FA71556628e0aabd6B6B6783d99fA"))
-
+    Utils.Print("0x9E126C57330FA71556628e0aabd6B6B6783d99fA balance from evm-rpc: %d" % (bal2))
     # balance different = 1.0 EOS (val) + 900(Gwei) (21000(base gas))
     assert(bal1 == bal2 + 1000000000000000000 + 900000000000 * 21000)
 
