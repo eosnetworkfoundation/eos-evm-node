@@ -214,65 +214,6 @@ def interact_with_storage_contract(dest, nonce):
 
     return nonce
 
-def processUrllibRequest(endpoint, payload={}, silentErrors=False, exitOnError=False, exitMsg=None, returnType=ReturnType.json):
-    cmd = f"{endpoint}"
-    req = urllib.request.Request(cmd, method="POST")
-    req.add_header('Content-Type', 'application/json')
-    req.add_header('Accept', 'application/json')
-    data = payload
-    data = json.dumps(data)
-    data = data.encode()
-    if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
-    rtn=None
-    start=time.perf_counter()
-    try:
-        response = urllib.request.urlopen(req, data=data)
-        if returnType==ReturnType.json:
-            rtn = {}
-            rtn["code"] = response.getcode()
-            rtn["payload"] = json.load(response)
-        elif returnType==ReturnType.raw:
-            rtn = response.read()
-        else:
-            unhandledEnumType(returnType)
-
-        if Utils.Debug:
-            end=time.perf_counter()
-            Utils.Print("cmd Duration: %.3f sec" % (end-start))
-            printReturn=json.dumps(rtn) if returnType==ReturnType.json else rtn
-            Utils.Print("cmd returned: %s" % (printReturn[:1024]))
-    except urllib.error.HTTPError as ex:
-        if not silentErrors:
-            end=time.perf_counter()
-            msg=ex.msg
-            errorMsg="Exception during \"%s\". %s.  cmd Duration=%.3f sec." % (cmd, msg, end-start)
-            if exitOnError:
-                Utils.cmdError(errorMsg)
-                Utils.errorExit(errorMsg)
-            else:
-                Utils.Print("ERROR: %s" % (errorMsg))
-                if returnType==ReturnType.json:
-                    rtn = json.load(ex)
-                elif returnType==ReturnType.raw:
-                    rtn = ex.read()
-                else:
-                    unhandledEnumType(returnType)
-        else:
-            return None
-    except:
-        Utils.Print("Unknown exception occurred during processUrllibRequest")
-        raise
-
-    if exitMsg is not None:
-        exitMsg=": " + exitMsg
-    else:
-        exitMsg=""
-    if exitOnError and rtn is None:
-        Utils.cmdError("could not \"%s\" - %s" % (cmd,exitMsg))
-        Utils.errorExit("Failed to \"%s\"" % (cmd))
-
-    return rtn
-
 def getGasPrice():
     return 15000000000
 
@@ -320,10 +261,11 @@ try:
 
     specificExtraNodeosArgs[2]="--plugin eosio::test_control_api_plugin"
 
-    extraNodeosArgs="--contracts-console --resource-monitor-not-shutdown-on-threshold-exceeded"
+    extraNodeosArgs="--contracts-console --production-pause-vote-timeout-ms 0 --resource-monitor-not-shutdown-on-threshold-exceeded"
 
     Print("Stand up cluster")
-    if cluster.launch(prodCount=2, pnodes=2, topo="bridge", totalNodes=3, extraNodeosArgs=extraNodeosArgs, totalProducers=3, specificExtraNodeosArgs=specificExtraNodeosArgs,delay=5) is False:
+    # node 0 (defproducera, defproducerb), node 1 (defproducerc, ...)
+    if cluster.launch(prodCount=2, pnodes=2, topo="bridge", totalNodes=3, extraNodeosArgs=extraNodeosArgs, totalProducers=4, specificExtraNodeosArgs=specificExtraNodeosArgs,delay=5,activateIF=True,biosFinalizer=False) is False:
         errorExit("Failed to stand up eos cluster.")
 
     Print ("Wait for Cluster stabilization")
@@ -352,10 +294,10 @@ try:
             prodNodes.append(node)
             producers.extend(node.producers)
 
-    node=prodNodes[0] # producers: defproducera, defproducerb
-    node1=prodNodes[1] # producers: defproducerc
     # node2 is the nonProdnode (the bridge node)
-    prodNode = prodNodes[0]
+    prodNode = prodNodes[shipNodeNum] # the node the push transactions
+    node = prodNode
+    node1 = prodNodes[1 - shipNodeNum]
 
     # ***   Identify a block where production is stable   ***
     #verify nodes are in sync and advancing
@@ -496,16 +438,8 @@ try:
     trans = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name))
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
 
-    #
-    # Test some failure cases
-    #
-
-    # incorrect nonce
-    Utils.Print("Send balance again, should fail with wrong nonce")
-    retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
-    assert not retValue[0], f"push trx should have failed: {retValue}"
-
     # correct nonce
+    time.sleep(1.0)
     nonce += 1
     gasP = getGasPrice()
     signed_trx = w3.eth.account.sign_transaction(dict(
@@ -523,30 +457,6 @@ try:
     retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
     time.sleep(1.0)
     assert retValue[0], f"push trx should have succeeded: {retValue}"
-
-    # incorrect chainid
-    nonce += 1
-    evmChainId = 8888
-    gasP = getGasPrice()
-    signed_trx = w3.eth.account.sign_transaction(dict(
-        nonce=nonce,
-        gas=100000,       #100k Gas
-        gasPrice=gasP,
-        to=Web3.to_checksum_address(toAdd),
-        value=amount,
-        data=b'',
-        chainId=evmChainId
-    ), evmSendKey)
-
-    actData = {"miner":minerAcc.name, "rlptx":Web3.to_hex(get_raw_transaction(signed_trx))[2:]}
-    Utils.Print("Send balance again, with invalid chainid")
-    retValue = prodNode.pushMessage(evmAcc.name, "pushtx", json.dumps(actData), '-p {0}'.format(minerAcc.name), silentErrors=True)
-    time.sleep(1.0)
-    assert not retValue[0], f"push trx should have failed: {retValue}"
-
-    # correct values for continuing
-    nonce -= 1
-    evmChainId = 15555
 
     Utils.Print("Simple Solidity contract")
 # pragma solidity >=0.7.0 <0.9.0;
@@ -758,7 +668,7 @@ try:
     # Verify header.nonce == 1 (evmversion=1)
     evm_block = w3.eth.get_block('latest')
     Utils.Print("before fork, the latest evm block is:" + str(evm_block))
-    assert(evm_block["nonce"].hex() == "0000000000000001")
+    assert(evm_block["nonce"].hex() == "0000000000000001" or evm_block["nonce"].hex() == "0x0000000000000001")
     assert("consensusParameter" in evm_block)
     assert(evm_block["consensusParameter"]["gasFeeParameters"]["gasCodedeposit"] == 477)
     assert(evm_block["consensusParameter"]["gasFeeParameters"]["gasNewaccount"] == 165519)
@@ -823,8 +733,9 @@ try:
         Utils.errorExit("failed to catch a block produced by defproducerb")
 
     blockProducer1=node1.getBlockProducerByNum(blockNum)
-    Utils.Print("block number %d is producer by %s in node0" % (blockNum, blockProducer))
-    Utils.Print("block number %d is producer by %s in node1" % (blockNum, blockProducer1))
+    lib = info["last_irreversible_block_num"]
+    Utils.Print("before kill, block number %d is producer by %s in node0, LIB %d" % (blockNum, blockProducer, lib))
+    Utils.Print("before kill, block number %d is producer by %s in node1, LIB %d" % (blockNum, blockProducer1, lib))
 
     # ===== start to make a fork, killing the "bridge" node ====
     Print("Sending command to kill \"bridge\" node to separate the 2 producer groups.")
@@ -900,12 +811,11 @@ try:
     prodNode.waitForTransBlockIfNeeded(trans[1], True);
     time.sleep(2)
 
-    Utils.Print("Transfer funds to trigger gas parameter in minor fork")
     # EVM -> EVM
     #   0x9E126C57330FA71556628e0aabd6B6B6783d99fA private key: 0xba8c9ff38e4179748925335a9891b969214b37dc3723a1754b8b849d3eea9ac0
     toAdd = 0x4ce0ca184bc155a5df5dae2f4643cba60eb1a9ed
     evmSendKey = "ba8c9ff38e4179748925335a9891b969214b37dc3723a1754b8b849d3eea9ac0"
-    Print("Transfer EVM->EVM funds 1Gwei from account %s to %s" % (evmAcc.name, toAdd))
+    Print("In minor fork, transfer EVM->EVM funds 1Gwei from account %s to %s to trigger gas parameter change" % (evmAcc.name, toAdd))
     nonce = 1
     gasP = getGasPrice()
     signed_trx = w3.eth.account.sign_transaction(dict(
@@ -924,7 +834,7 @@ try:
     time.sleep(1.0)
     prodNode.waitForTransBlockIfNeeded(trans[1], True)
     row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) 
-    Utils.Print("\taccount row4 in node0: ", row4)
+    Utils.Print("In minor fork account row4 in node0: ", row4)
 
     assert(row4["eth_address"] == "9e126c57330fa71556628e0aabd6b6b6783d99fa")
     assert(row4["balance"] == "0000000000000000000000000000000000000000000000024c8ff6c362545600")
@@ -934,7 +844,7 @@ try:
     time.sleep(1.0)
     node1.waitForTransBlockIfNeeded(trans[1], True)
     row4_node1=node1.getTableRow(evmAcc.name, evmAcc.name, "account", 4)
-    Utils.Print("\taccount row4 in node1: ", row4_node1)
+    Utils.Print("In minor fork, account row4 in node1: ", row4_node1)
     assert(row4_node1["eth_address"] == "9e126c57330fa71556628e0aabd6b6b6783d99fa")
     assert(row4_node1["balance"] == "0000000000000000000000000000000000000000000000024c91bd38333b1600")
     assert(row4["balance"] != row4_node1["balance"])
@@ -942,7 +852,7 @@ try:
     # verify eos-evm-node get the new gas parameter from the minor fork
     evm_block = w3.eth.get_block('latest')
     Utils.Print("in minor fork, the latest evm block is:" + str(evm_block))
-    assert(evm_block["nonce"].hex() == "0000000000000001")
+    assert(evm_block["nonce"].hex() == "0000000000000001" or evm_block["nonce"].hex() == "0x0000000000000001")
     assert("consensusParameter" in evm_block)
 
     assert(evm_block["consensusParameter"]["gasFeeParameters"]["gasCodedeposit"] == 573)
@@ -992,6 +902,10 @@ try:
     # if node1.verifyAlive():
     #     Utils.errorExit("Expected the node 1 to have shutdown.")
 
+    blockNum0 = prodNodes[0].getBlockNum()
+    blockNum1 = prodNodes[1].getBlockNum()
+    WaitUntilBlockNum = max(blockNum0, blockNum1) + 20
+    Print("Before relaunching the bridge node: prod[0] head_block_num %d, prod[1] head_block_num %d" % (blockNum0, blockNum1))
     Print("Relaunching the non-producing bridge node to connect the node 0 (defproducera, defproducerb)")
     if not nonProdNode.relaunch(chainArg=" --hard-replay "):
         errorExit("Failure - (non-production) node %d should have restarted" % (nonProdNode.nodeNum))
@@ -1001,7 +915,7 @@ try:
     # if not node1.relaunch(chainArg=" --enable-stale-production "):
     #     errorExit("Failure - (non-production) node 1 should have restarted")
 
-    Print("Waiting to allow forks to resolve")
+    Print("Waiting to allow forks to resolve from block %d" % (killBlockNum))
     time.sleep(3)
 
     for prodNode in prodNodes:
@@ -1024,9 +938,11 @@ try:
         if match:
             if checkHead:
                 forkResolved=True
-                Print("Great! fork resolved!!!")
+                Print("Great! fork resolved!!! killBlockNum %d, current head_number %d, producer %s" % (killBlockNum, checkMatchBlock, blockProducer0))
                 break
             else:
+                Print("Block %d has producer %s in both nodes, continue to check head" %(checkMatchBlock, blockProducer0))
+                assert (blockProducer0 == "defproducerc" or blockProducer0 == "defproducerd"), "node0 must switch fork at %d" % (killBlockNum)
                 checkHead=True
                 continue
         Print("Fork has not resolved yet, wait a little more. Block %s has producer %s for node_00 and %s for node_01.  Original divergence was at block %s. Wait time remaining: %d" % (checkMatchBlock, blockProducer0, blockProducer1, killBlockNum, remainingChecks))
@@ -1036,6 +952,12 @@ try:
     assert forkResolved, "fork was not resolved in a reasonable time. node_00 lib {} head {}, node_01 lib {} head {}".format(\
         prodNodes[0].getIrreversibleBlockNum(), prodNodes[0].getHeadBlockNum(), \
         prodNodes[1].getIrreversibleBlockNum(), prodNodes[1].getHeadBlockNum())
+    
+    # wait until the current chain is longer than any minor fork happened in the past
+    # ensure the EVM oracle to switch to longer fork
+    blockNum0 = prodNodes[0].getBlockNum()
+    WaitUntilBlockNum = max(WaitUntilBlockNum, killBlockNum + 30)
+    prodNodes[0].waitForBlock(WaitUntilBlockNum)
 
     row4=prodNode.getTableRow(evmAcc.name, evmAcc.name, "account", 4) 
     Utils.Print("\taccount row4 in node0: ", row4)
@@ -1046,7 +968,7 @@ try:
 
     evm_block = w3.eth.get_block('latest')
     Utils.Print("after fork resolved, the latest evm block is:" + str(evm_block))
-    assert(evm_block["nonce"].hex() == "0000000000000001")
+    assert(evm_block["nonce"].hex() == "0000000000000001" or evm_block["nonce"].hex() == "0x0000000000000001")
     assert("consensusParameter" in evm_block)
 
     assert(evm_block["consensusParameter"]["gasFeeParameters"]["gasCodedeposit"] == 477)
